@@ -12,11 +12,15 @@ Based on Character's visibility, the rest of the screen will be blurry, except f
 
 4.An A.I. similar to F.E.A.R. that attacks the player.
 
+5. Create Sprites
+
 Extra Goals:
 
-1. Complex UI.
+1. Add decorations; doll everything up.
+2. Breakable objects; debris falling. 
+3. Complex UI.
 
-2. Mirrors.
+4. Mirrors.
 
 Art Style:
 https://www.youtube.com/watch?v=g7xeGpoCScs
