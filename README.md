@@ -6,12 +6,15 @@ Goals:
 
 2.Playable character that can shoot.
 
+Based on Character's visibility, the rest of the screen will be blurry, except for what the character could see.
+
 3.Simple UI.
 
 4.An A.I. similar to F.E.A.R. that attacks the player.
 
 Extra Goals:
 Complex UI.
+Mirrors.
 
 Art Style:
 https://www.youtube.com/watch?v=g7xeGpoCScs
