@@ -25,3 +25,9 @@ Extra Goals:
 Art Style:
 https://www.youtube.com/watch?v=g7xeGpoCScs
 
+
+Meeting Days (7-9 pm):
+Wednesday
+Monday
+
+
