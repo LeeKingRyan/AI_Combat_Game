@@ -14,9 +14,9 @@ Based on Character's visibility, the rest of the screen will be blurry, except f
 
 Extra Goals:
 
-Complex UI.
+1. Complex UI.
 
-Mirrors.
+2. Mirrors.
 
 Art Style:
 https://www.youtube.com/watch?v=g7xeGpoCScs
