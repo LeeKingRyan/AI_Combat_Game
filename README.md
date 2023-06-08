@@ -13,7 +13,9 @@ Based on Character's visibility, the rest of the screen will be blurry, except f
 4.An A.I. similar to F.E.A.R. that attacks the player.
 
 Extra Goals:
+
 Complex UI.
+
 Mirrors.
 
 Art Style:
