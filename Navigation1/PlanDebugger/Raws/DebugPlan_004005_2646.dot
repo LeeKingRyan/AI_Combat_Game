@@ -1,0 +1,56 @@
+
+digraph {
+
+node [shape=box]
+
+-372291410 [label=<
+<table border='0' color='black' fontcolor='#F5F5F5'>
+    <tr> <td colspan='2'><b>NoAction</b></td> </tr>
+    <hr/>
+    <tr align='left'> <td border='1' sides='rt'><b>Costs</b></td>           <td border='1' sides='t'><b>g</b>: 0 ; <b>h</b>: 2 ; <b>c</b>: 2</td> </tr>
+    <tr align='left'> <td border='1' sides='rt'><b>Preconditions</b></td>   <td border='1' sides='t'></td> </tr>
+    <tr align='left'> <td border='1' sides='rt'><b>Effects</b></td>         <td border='1' sides='t'></td> </tr>
+    <tr align='left'> <td border='1' sides='rt'><b>Goal</b></td>            <td border='1' sides='t'>'investigatedPointZero': True, 'reconcilePosition': True, </td> </tr>
+</table>
+>]
+698115474 [label=<
+<table border='0' color='black' fontcolor='#F5F5F5'>
+    <tr> <td colspan='2'><b>InvestigateAction</b></td> </tr>
+    <hr/>
+    <tr align='left'> <td border='1' sides='rt'><b>Costs</b></td>           <td border='1' sides='t'><b>g</b>: 1 ; <b>h</b>: 2 ; <b>c</b>: 3</td> </tr>
+    <tr align='left'> <td border='1' sides='rt'><b>Preconditions</b></td>   <td border='1' sides='t'>'isAtPosition': (19.94, 0.00, 10.00), </td> </tr>
+    <tr align='left'> <td border='1' sides='rt'><b>Effects</b></td>         <td border='1' sides='t'>'investigatedPointZero': True, </td> </tr>
+    <tr align='left'> <td border='1' sides='rt'><b>Goal</b></td>            <td border='1' sides='t'>'reconcilePosition': True, 'isAtPosition': (19.94, 0.00, 10.00), </td> </tr>
+</table>
+>]
+1233318916 [label=<
+<table border='0' color='black' fontcolor='#F5F5F5'>
+    <tr> <td colspan='2'><b>GoToAction</b></td> </tr>
+    <hr/>
+    <tr align='left'> <td border='1' sides='rt'><b>Costs</b></td>           <td border='1' sides='t'><b>g</b>: 3 ; <b>h</b>: 1 ; <b>c</b>: 4</td> </tr>
+    <tr align='left'> <td border='1' sides='rt'><b>Preconditions</b></td>   <td border='1' sides='t'></td> </tr>
+    <tr align='left'> <td border='1' sides='rt'><b>Effects</b></td>         <td border='1' sides='t'>'isAtPosition': (19.94, 0.00, 10.00), </td> </tr>
+    <tr align='left'> <td border='1' sides='rt'><b>Goal</b></td>            <td border='1' sides='t'>'reconcilePosition': True, </td> </tr>
+</table>
+>]
+1768522358 [label=<
+<table border='0' color='black' fontcolor='#F5F5F5'>
+    <tr> <td colspan='2'><b>GoToAction</b></td> </tr>
+    <hr/>
+    <tr align='left'> <td border='1' sides='rt'><b>Costs</b></td>           <td border='1' sides='t'><b>g</b>: 27.32943 ; <b>h</b>: 0 ; <b>c</b>: 27.32943</td> </tr>
+    <tr align='left'> <td border='1' sides='rt'><b>Preconditions</b></td>   <td border='1' sides='t'></td> </tr>
+    <tr align='left'> <td border='1' sides='rt'><b>Effects</b></td>         <td border='1' sides='t'>'reconcilePosition': True, 'isAtPosition': (0.00, 1.00, 0.00), </td> </tr>
+    <tr align='left'> <td border='1' sides='rt'><b>Goal</b></td>            <td border='1' sides='t'></td> </tr>
+</table>
+>]
+1768522358 [style="bold" color="darkgreen"]
+1233318916 [style="bold" color="darkgreen"]
+698115474 [style="bold" color="darkgreen"]
+-372291410 [style="bold" color="darkgreen"]
+
+-372291410 -> 698115474
+698115474 -> 1233318916
+1233318916 -> 1768522358
+
+}
+

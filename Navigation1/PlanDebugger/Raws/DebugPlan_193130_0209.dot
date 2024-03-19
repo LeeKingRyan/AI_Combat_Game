@@ -1,0 +1,33 @@
+
+digraph {
+
+node [shape=box]
+
+1619599080 [label=<
+<table border='0' color='black' fontcolor='#F5F5F5'>
+    <tr> <td colspan='2'><b>NoAction</b></td> </tr>
+    <hr/>
+    <tr align='left'> <td border='1' sides='rt'><b>Costs</b></td>           <td border='1' sides='t'><b>g</b>: 0 ; <b>h</b>: 1 ; <b>c</b>: 1</td> </tr>
+    <tr align='left'> <td border='1' sides='rt'><b>Preconditions</b></td>   <td border='1' sides='t'></td> </tr>
+    <tr align='left'> <td border='1' sides='rt'><b>Effects</b></td>         <td border='1' sides='t'></td> </tr>
+    <tr align='left'> <td border='1' sides='rt'><b>Goal</b></td>            <td border='1' sides='t'>'investigatedPatrolPoint': True, </td> </tr>
+</table>
+>]
+-2140164774 [label=<
+<table border='0' color='black' fontcolor='#F5F5F5'>
+    <tr> <td colspan='2'><b>InvestigateActionii</b></td> </tr>
+    <hr/>
+    <tr align='left'> <td border='1' sides='rt'><b>Costs</b></td>           <td border='1' sides='t'><b>g</b>: 1 ; <b>h</b>: 1 ; <b>c</b>: 2</td> </tr>
+    <tr align='left'> <td border='1' sides='rt'><b>Preconditions</b></td>   <td border='1' sides='t'>'isAtPosition': (0.56, 0.00, -19.30), </td> </tr>
+    <tr align='left'> <td border='1' sides='rt'><b>Effects</b></td>         <td border='1' sides='t'>'investigatedPatrolPoint': True, </td> </tr>
+    <tr align='left'> <td border='1' sides='rt'><b>Goal</b></td>            <td border='1' sides='t'>'isAtPosition': (0.56, 0.00, -19.30), </td> </tr>
+</table>
+>]
+-1604961332 [style="bold" color="darkgreen"]
+-2140164774 [style="bold" color="darkgreen"]
+1619599080 [style="bold" color="darkgreen"]
+
+1619599080 -> -2140164774
+
+}
+

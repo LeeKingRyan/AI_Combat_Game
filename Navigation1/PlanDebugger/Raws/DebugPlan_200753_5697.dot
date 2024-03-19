@@ -1,0 +1,33 @@
+
+digraph {
+
+node [shape=box]
+
+-2078427818 [label=<
+<table border='0' color='black' fontcolor='#F5F5F5'>
+    <tr> <td colspan='2'><b>NoAction</b></td> </tr>
+    <hr/>
+    <tr align='left'> <td border='1' sides='rt'><b>Costs</b></td>           <td border='1' sides='t'><b>g</b>: 0 ; <b>h</b>: 1 ; <b>c</b>: 1</td> </tr>
+    <tr align='left'> <td border='1' sides='rt'><b>Preconditions</b></td>   <td border='1' sides='t'></td> </tr>
+    <tr align='left'> <td border='1' sides='rt'><b>Effects</b></td>         <td border='1' sides='t'></td> </tr>
+    <tr align='left'> <td border='1' sides='rt'><b>Goal</b></td>            <td border='1' sides='t'>'following': True, </td> </tr>
+</table>
+>]
+-1543224376 [label=<
+<table border='0' color='black' fontcolor='#F5F5F5'>
+    <tr> <td colspan='2'><b>FollowActionii</b></td> </tr>
+    <hr/>
+    <tr align='left'> <td border='1' sides='rt'><b>Costs</b></td>           <td border='1' sides='t'><b>g</b>: 1 ; <b>h</b>: 1 ; <b>c</b>: 2</td> </tr>
+    <tr align='left'> <td border='1' sides='rt'><b>Preconditions</b></td>   <td border='1' sides='t'>'isAtPosition': (-10.98, 1.08, -16.88), </td> </tr>
+    <tr align='left'> <td border='1' sides='rt'><b>Effects</b></td>         <td border='1' sides='t'>'following': True, </td> </tr>
+    <tr align='left'> <td border='1' sides='rt'><b>Goal</b></td>            <td border='1' sides='t'>'isAtPosition': (-10.98, 1.08, -16.88), </td> </tr>
+</table>
+>]
+-1008020934 [style="bold" color="darkgreen"]
+-1543224376 [style="bold" color="darkgreen"]
+-2078427818 [style="bold" color="darkgreen"]
+
+-2078427818 -> -1543224376
+
+}
+
