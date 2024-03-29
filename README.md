@@ -6,19 +6,19 @@ environment. The AI agents plan to efficiently kill the player while cautious of
 ## How to Run the Game & How to Play
 
 ## What we learned
-  By developing the game, we learned about working as a team and independently on different systems, then integrating those systems together. Additionally, we learned about optimizing our systems to be scalable in order to develop addittional features to the game, and we learned better organization skills when working with each others' scripts.
+By developing the game, we learned about working as a team and independently on different systems, then integrating those systems together. Additionally, we learned about optimizing our systems to be scalable in order to develop addittional features to the game, and we learned better organization skills when working with each others' scripts.
 Further, we committed ourselves to research in order to plan our development processes, including how to develop features around the G.O.A.P. architecture. 
 ## In-Depth Look of the Game's Code Structure
 
-  ### Overview
+### Overview
   
-  ### The ReGoap architecture
+### The ReGoap architecture
 
-  ### Utlization of a Finitie State Machine
+### Utlization of a Finitie State Machine
 
-  ### Controls
+### Controls
 
-  ### UI Elements
+### UI Elements
 
 ## Future Priority Goals
 Further optimize game's performance and clean the code
