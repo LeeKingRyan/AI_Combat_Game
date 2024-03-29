@@ -11,6 +11,8 @@ created by Monolith studios and its marketable feature of a dynamic planning arc
 Further, we committed ourselves to research in order to plan our development processes, including how to  
 ## In-Depth Look of the Game's Code Structure
 
+  ### Overview
+  
   ### The ReGoap architecture
 
   ### Utlization of a Finitie State Machine
