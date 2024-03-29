@@ -1,14 +1,13 @@
 # AI Shooter Combat
 
 ## Objective
-  Develop a video game in Unity to which the player combat against Artificial Intelligent agents capable of planning and adapting to any changes in a game
-environment. The AI agents plan to efficiently kill the player while cautious of their own vitality. This project is inspired by the 2006 video game F.E.A.R.
-created by Monolith studios and its marketable feature of a dynamic planning architecture called Goal Oriented Action Planning, G.O.A.P., created by Jeff Orkin.
+The goal is to develop a video game in Unity to which the player combat against Artificial Intelligent agents capable of planning and adapting to any changes in a game
+environment. The AI agents plan to efficiently kill the player while cautious of their own vitality. This project is inspired by the 2006 video game F.E.A.R. created by Monolith studios and its marketable feature of a dynamic planning architecture called Goal Oriented Action Planning, or G.O.A.P., created by Jeff Orkin.
 ## How to Run the Game & How to Play
 
 ## What we learned
   By developing the game, we learned about working as a team and independently on different systems, then integrating those systems together. Additionally, we learned about optimizing our systems to be scalable in order to develop addittional features to the game, and we learned better organization skills when working with each others' scripts.
-Further, we committed ourselves to research in order to plan our development processes, including how to  
+Further, we committed ourselves to research in order to plan our development processes, including how to develop features around the G.O.A.P. architecture. 
 ## In-Depth Look of the Game's Code Structure
 
   ### Overview
