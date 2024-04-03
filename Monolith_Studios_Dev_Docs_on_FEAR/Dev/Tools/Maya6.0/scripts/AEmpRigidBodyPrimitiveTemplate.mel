@@ -1,9 +1,0 @@
-global proc AEmpRigidBodyPrimitiveAttributes(string $node)
-{
-	editorTemplate -beginLayout "Monolith Attributes" -collapse true;
-
-		editorTemplate -label "Mass Percent" -addControl "mpMassPercent";
-		editorTemplate -label "Density Scale" -addControl "mpDensityScale";
-				
-	editorTemplate -endLayout;
-}

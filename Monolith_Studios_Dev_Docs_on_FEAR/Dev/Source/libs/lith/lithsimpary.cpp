@@ -1,3 +1,0 @@
-
-#include "lithsimpary.h"
-
