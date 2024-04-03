@@ -1,0 +1,653 @@
+//--------------------------------------------------------------------------------------------
+/** @file   Monolith/UI/mpTabPhysicsTabConstraints.mel
+ *  @date   10/15/2004
+ *
+ * (c) 1997-2004 Monolith Productions, Inc.  All Rights Reserved
+ */
+//--------------------------------------------------------------------------------------------
+
+source "monolith/mpModelUtility.mel";
+source "monolith/mpModelImport.mel";
+source "monolith/mpModelExport.mel";
+source "monolith/UI/mpTabPhysics.mel";
+
+//--------------------------------------------------------------------------------------------
+/** @author Jeff Cotton
+ *  @date   10/14/2004
+ *  @param  $parentUI
+ *  @brief  
+ */
+global proc mpUITabPhysicsTabConstraintsPropertiesUpdate( string $parentUI, 
+                                                          string $getSelectionCallback )
+{
+	string $controlPath = $parentUI + "|Properties";
+	
+	// if we haven't created the UI yet then create it.
+	if ( !`layout -exists $controlPath` )
+	{
+		$oldParentUI = `setParent -query`;
+		
+		setParent $parentUI;
+		{
+			mpUITabPhysicsTabConstraintsPropertiesCreate( $getSelectionCallback );
+		}
+		setParent $oldParentUI;
+	}
+	
+	string $basePath   = $controlPath;
+	string $float1     = $basePath + "|Float1";
+	string $float1Text = $float1 + "Text";
+	string $float2     = $basePath + "|Float2";
+	string $float2Text = $float2 + "Text";
+	string $float3     = $basePath + "|Float3";
+	string $float3Text = $float3 + "Text";
+	string $float4     = $basePath + "|Float4";
+	string $float4Text = $float4 + "Text";
+	string $float5     = $basePath + "|Float5";
+	string $float5Text = $float5 + "Text";
+	string $float6     = $basePath + "|Float6";
+	string $float6Text = $float6 + "Text";
+	string $float7     = $basePath + "|Float7";
+	string $float7Text = $float7 + "Text";
+	
+	string $selection[];
+	
+	if ( "" != $getSelectionCallback )
+	{
+		$selection = eval( $getSelectionCallback );
+	}
+	else
+	{
+		warning( "Constraint UI will not function correctly without a selection Callback" );
+	}
+	
+	int $bEnable = ( 0 == size( $selection ) ? false : true );
+	string $type = "";
+	
+	string $constraints[];
+	
+	for ( $transform in $selection )
+	{
+		string $children[] = `listRelatives -path -children $transform`;
+		if ( 0 != size( $children ) )
+		{
+			$constraints[size( $constraints )] = $children[0];
+		}
+	}
+	
+	for ( $constraint in $constraints )
+	{
+		string $curType = `nodeType $constraint`;
+		
+		if ( "" == $type )
+		{
+			$type = $curType;
+		}
+		
+		if ( $type != $curType )
+		{
+			$type = "Mixed";
+			break;
+		}
+	}
+	
+	switch ( `tolower $type` )
+	{
+		case "hkhingeconstraint":
+		{
+			text    -edit -label "Max Limit Angle" -manage  true -enable  $bEnable $float1Text;
+			control -edit -manage  true -enable $bEnable $float1;
+			text    -edit -label "Range" -manage  true -enable  $bEnable $float2Text;
+			control -edit -manage  true -enable $bEnable $float2;
+			control -edit -manage false -enable false $float3Text;
+			control -edit -manage false -enable false $float3;
+			control -edit -manage false -enable false $float4Text;
+			control -edit -manage false -enable false $float4;
+			control -edit -manage false -enable false $float5Text;
+			control -edit -manage false -enable false $float5;
+			control -edit -manage false -enable false $float6Text;
+			control -edit -manage false -enable false $float6;
+			text    -edit -label "Friction" -manage  true -enable  $bEnable $float7Text;
+			control -edit -manage  true -enable $bEnable $float7;
+			
+			if ( $bEnable )
+			{
+				string $maxLimitAngles[];
+				string $ranges[];
+				string $frictions[];
+				for ( $constraint in $constraints )
+				{
+					$maxLimitAngles[size($maxLimitAngles)] = $constraint + ".maxLimitAngleA";
+					$ranges[size($ranges)]                 = $constraint + ".range";
+					$frictions[size($frictions)]           = $constraint + ".limitFriction";
+				}
+				
+				connectControl $float1 $maxLimitAngles;
+				connectControl $float2 $ranges;
+				connectControl $float7 $frictions;
+			}
+		}
+		break;
+		
+		case "hkragdollconstraint":
+		{
+			text    -edit -label "Twist Min" -manage  true -enable  $bEnable $float1Text;
+			control -edit -manage  true -enable $bEnable $float1;
+			text    -edit -label "Twist Max" -manage  true -enable  $bEnable $float2Text;
+			control -edit -manage  true -enable $bEnable $float2;
+			text    -edit -label "Negative Cone (degrees)" -manage  true -enable  $bEnable $float3Text;
+			control -edit -manage  true -enable $bEnable $float3;
+			text    -edit -label "Positive Cone (degrees)" -manage  true -enable  $bEnable $float4Text;
+			control -edit -manage  true -enable $bEnable $float4;
+			text    -edit -label "Move Cone Min (degrees)" -manage  true -enable  $bEnable $float5Text;
+			control -edit -manage  true -enable $bEnable $float5;
+			text    -edit -label "Move Cone Max (degrees)" -manage  true -enable  $bEnable $float6Text;
+			control -edit -manage  true -enable $bEnable $float6;
+			text    -edit -label "Friction" -manage  true -enable  $bEnable $float7Text;
+			control -edit -manage  true -enable $bEnable $float7;
+			
+			if ( $bEnable )
+			{
+				string $twistMins[];
+				string $twistMaxs[];
+				string $planeMins[];
+				string $planeMaxs[];
+				string $coneMins[];
+				string $coneMaxs[];
+				string $frictions[];
+				
+				for ( $constraint in $constraints )
+				{
+					$twistMins[size($twistMins)] = $constraint + ".twistMin";
+					$twistMaxs[size($twistMaxs)] = $constraint + ".twistMax";
+					$planeMins[size($planeMins)] = $constraint + ".planeMin";
+					$planeMaxs[size($planeMaxs)] = $constraint + ".planeMax";
+					$coneMins[size($coneMins)]   = $constraint + ".coneMin";
+					$coneMaxs[size($coneMaxs)]   = $constraint + ".coneMax";
+					$frictions[size($frictions)] = $constraint + ".friction";
+				}
+				
+				connectControl $float1 $twistMins;
+				connectControl $float2 $twistMaxs;
+				connectControl $float3 $planeMins;
+				connectControl $float4 $planeMaxs;
+				connectControl $float5 $coneMins;
+				connectControl $float6 $coneMaxs;
+				connectControl $float7 $frictions;
+			}
+		}
+		break;
+		
+		default:
+		{
+			control -edit -manage false -enable false $float1Text;
+			control -edit -manage false -enable false $float1;
+			control -edit -manage false -enable false $float2Text;
+			control -edit -manage false -enable false $float2;
+			control -edit -manage false -enable false $float3Text;
+			control -edit -manage false -enable false $float3;
+			control -edit -manage false -enable false $float4Text;
+			control -edit -manage false -enable false $float4;
+			control -edit -manage false -enable false $float5Text;
+			control -edit -manage false -enable false $float5;
+			control -edit -manage false -enable false $float6Text;
+			control -edit -manage false -enable false $float6;
+			control -edit -manage false -enable false $float7Text;
+			control -edit -manage false -enable false $float7;
+		}
+		break;
+	}
+}
+
+//--------------------------------------------------------------------------------------------
+/** @author Jeff Cotton
+ *  @date   10/14/2004
+ *  @param  $parentUI
+ *  @brief  
+ */
+global proc mpUITabPhysicsTabConstraintsPropertiesDelete( string $parentUI )
+{
+	string $controlPath = $parentUI + "|Properties";
+	
+	if ( `frameLayout -exists $controlPath` )
+	{
+		deleteUI $controlPath;
+	}
+}
+
+//--------------------------------------------------------------------------------------------
+/** @author Jeff Cotton
+ *  @date   10/14/2004
+ *  @param  $selectionChangedCallback
+ *  @param  $selectionActivateCallback
+ *  @return full ELF path to the newly createUI (this is a formlayout)
+ *  @brief  
+ */
+global proc string mpUITabPhysicsTabConstraintsPropertiesCreate( string $getSelectionCallback )
+{
+	string $parentUI = `setParent -query`;
+	
+	mpUITabPhysicsTabConstraintsPropertiesDelete( $parentUI );
+	
+	string $layout = `formLayout -numberOfDivisions 100 "Properties"`;
+	{
+		mpUIEmbedUpdateCommand( "mpUITabPhysicsTabConstraintsPropertiesUpdate( \"" + $parentUI + "\", \"" + encodeString( $getSelectionCallback ) + "\" )" );
+		
+		string $float1Text = `text -label   ""
+		                           -manage  false
+		                           -enable  false
+		                           -align   "left"
+		                           Float1Text`;
+		
+		string $float1 = `floatSliderGrp -enable           false
+		                                 -manage           false
+		                                 -field            true
+		                                 -columnWidth      1 60
+		                                 -adjustableColumn 2
+		                                 -min              -180
+		                                 -max              180
+		                                 -fieldMinValue    -180
+		                                 -fieldMaxValue    180
+		                                 Float1`;
+		
+		string $float2Text = `text -label   ""
+		                           -manage  false
+		                           -enable  false
+		                           -align   "left"
+		                           Float2Text`;
+		
+		string $float2 = `floatSliderGrp -enable           false
+		                                 -manage           false
+		                                 -field            true
+		                                 -columnWidth      1 60
+		                                 -adjustableColumn 2
+		                                 -min              -180
+		                                 -max              180
+		                                 -fieldMinValue    -180
+		                                 -fieldMaxValue    180
+		                                 Float2`;
+		
+		string $float3Text = `text -label   ""
+		                           -manage  false
+		                           -enable  false
+		                           -align   "left"
+		                           Float3Text`;
+		
+		string $float3 = `floatSliderGrp -enable           false
+		                                 -manage           false
+		                                 -field            true
+		                                 -columnWidth      1 60
+		                                 -adjustableColumn 2
+		                                 -min              -90
+		                                 -max              90
+		                                 -fieldMinValue    -90
+		                                 -fieldMaxValue    90
+		                                 Float3`;
+		
+		string $float4Text = `text -label   ""
+		                           -manage  false
+		                           -enable  false
+		                           -align   "left"
+		                           Float4Text`;
+		
+		string $float4 = `floatSliderGrp -enable           false
+		                                 -manage           false
+		                                 -field            true
+		                                 -columnWidth      1 60
+		                                 -adjustableColumn 2
+		                                 -min              -90
+		                                 -max              90
+		                                 -fieldMinValue    -90
+		                                 -fieldMaxValue    90
+		                                 Float4`;
+		
+		string $float5Text = `text -label   ""
+		                           -manage  false
+		                           -enable  false
+		                           -align   "left"
+		                           Float5Text`;
+		
+		string $float5 = `floatSliderGrp -enable           false
+		                                 -manage           false
+		                                 -field            true
+		                                 -columnWidth      1 60
+		                                 -adjustableColumn 2
+		                                 -min              -180
+		                                 -max              180
+		                                 -fieldMinValue    -180
+		                                 -fieldMaxValue    180
+		                                 Float5`;
+		
+		string $float6Text = `text -label   ""
+		                           -manage  false
+		                           -enable  false
+		                           -align   "left"
+		                           Float6Text`;
+		
+		string $float6 = `floatSliderGrp -enable           false
+		                                 -manage           false
+		                                 -field            true
+		                                 -columnWidth      1 60
+		                                 -adjustableColumn 2
+		                                 -min              -180
+		                                 -max              180
+		                                 -fieldMinValue    -180
+		                                 -fieldMaxValue    180
+		                                 Float6`;
+		
+		string $float7Text = `text -label   ""
+		                           -manage  false
+		                           -enable  false
+		                           -align   "left"
+		                           Float7Text`;
+		
+		string $float7 = `floatSliderGrp -enable           false
+		                                 -manage           false
+		                                 -field            true
+		                                 -columnWidth      1 60
+		                                 -adjustableColumn 2
+		                                 -min              0
+		                                 -max              25
+		                                 -fieldMinValue    0
+		                                 -fieldMaxValue    10000
+		                                 -step             0.0001
+		                                 Float7`;
+		
+		formLayout -edit -attachForm     $float1Text  "top"    0
+		                 -attachForm     $float1Text  "left"   0
+		                 -attachNone     $float1Text  "bottom"
+		                 -attachPosition $float1Text  "right"  2 33
+		                 
+		                 -attachControl  $float1      "top"    5 $float1Text
+		                 -attachForm     $float1      "left"   0
+		                 -attachNone     $float1      "bottom"
+		                 -attachPosition $float1      "right"  2 33
+		                 
+		                 -attachControl  $float2Text  "top"    5 $float1
+		                 -attachForm     $float2Text  "left"   0
+		                 -attachNone     $float2Text  "bottom"
+		                 -attachPosition $float2Text  "right"  2 33
+		                 
+		                 -attachControl  $float2      "top"    5 $float2Text
+		                 -attachForm     $float2      "left"   0
+		                 -attachNone     $float2      "bottom"
+		                 -attachPosition $float2      "right"  2 33
+		                 
+		                 -attachForm     $float3Text  "top"    0
+		                 -attachPosition $float3Text  "left"   2 33
+		                 -attachNone     $float3Text  "bottom"
+		                 -attachPosition $float3Text  "right"  2 66
+		                 
+		                 -attachControl  $float3      "top"    5 $float3Text
+		                 -attachPosition $float3      "left"   2 33
+		                 -attachNone     $float3      "bottom"
+		                 -attachPosition $float3      "right"  2 66
+		                 
+		                 -attachControl  $float4Text  "top"    5 $float3
+		                 -attachPosition $float4Text  "left"   2 33
+		                 -attachNone     $float4Text  "bottom"
+		                 -attachPosition $float4Text  "right"  2 66
+		                 
+		                 -attachControl  $float4      "top"    5 $float4Text
+		                 -attachPosition $float4      "left"   2 33
+		                 -attachNone     $float4      "bottom"
+		                 -attachPosition $float4      "right"  2 66
+		                 
+		                 -attachForm     $float5Text  "top"    0
+		                 -attachPosition $float5Text  "left"   2 66
+		                 -attachNone     $float5Text  "bottom"
+		                 -attachPosition $float5Text  "right"  2 99
+		                 
+		                 -attachControl  $float5      "top"    5 $float5Text
+		                 -attachPosition $float5      "left"   2 66
+		                 -attachNone     $float5      "bottom"
+		                 -attachPosition $float5      "right"  2 99
+		                 
+		                 -attachControl  $float6Text  "top"    5 $float5
+		                 -attachPosition $float6Text  "left"   2 66
+		                 -attachNone     $float6Text  "bottom"
+		                 -attachPosition $float6Text  "right"  2 99
+		                 
+		                 -attachControl  $float6      "top"    5 $float6Text
+		                 -attachPosition $float6      "left"   2 66
+		                 -attachNone     $float6      "bottom"
+		                 -attachPosition $float6      "right"  2 99
+		                 
+		                 -attachControl  $float7Text  "top"    5 $float2
+		                 -attachForm     $float7Text  "left"   0
+		                 -attachNone     $float7Text  "bottom"
+		                 -attachPosition $float7Text  "right"  2 33
+		                 
+		                 -attachControl  $float7      "top"    5 $float7Text
+		                 -attachForm     $float7      "left"   0
+		                 -attachNone     $float7      "bottom"
+		                 -attachPosition $float7      "right"  2 33
+		                 
+		                 $layout;
+	}
+	setParent ..;
+	
+	mpUITabPhysicsTabConstraintsPropertiesUpdate( $parentUI, $getSelectionCallback );
+	
+	return $layout;
+}
+
+//--------------------------------------------------------------------------------------------
+/** @author Jeff Cotton
+ *  @date   10/14/2004
+ *  @param  $parentUI
+ *  @brief  
+ */
+global proc string[] mpUITabPhysicsTabConstraintsListGetSelection( string $parentUI )
+{
+	string $controlPath = $parentUI + "|List|List";
+	
+	return mpNodeListGetSelection( $controlPath );
+}
+
+//--------------------------------------------------------------------------------------------
+/** @author Jeff Cotton
+ *  @date   10/14/2004
+ *  @param  $parentUI
+ *  @brief  
+ */
+global proc mpUITabPhysicsTabConstraintsListUpdate( string $parentUI )
+{
+	string $controlPath = $parentUI + "|List|List";
+	string $rootJoint   = mpGetRootJoint( false, true );
+	string $constraints[];
+	
+	if ( "" != $rootJoint )
+	{
+		$constraints = mpGetConstraints( $rootJoint, true );
+	}
+	
+	string $selection[] = mpNodeListGetSelection( $controlPath );
+	
+	mpNodeListClear( $controlPath );
+	
+	for ( $constraint in $constraints )
+	{
+		mpNodeListAdd( $rootJoint, $constraint, $controlPath );
+	}
+	
+	for ( $item in $selection )
+	{
+		mpNodeListSelect( $rootJoint, $item, $controlPath );
+	}
+}
+
+//--------------------------------------------------------------------------------------------
+/** @author Jeff Cotton
+ *  @date   10/14/2004
+ *  @param  $parentUI
+ *  @brief  
+ */
+global proc mpUITabPhysicsTabConstraintsListDelete( string $parentUI )
+{
+	string $controlPath = $parentUI + "|List|List";
+	
+	if ( `frameLayout -exists $controlPath` )
+	{
+		deleteUI $controlPath;
+	}
+}
+
+//--------------------------------------------------------------------------------------------
+/** @author Jeff Cotton
+ *  @date   10/14/2004
+ *  @param  $selectionChangedCallback
+ *  @param  $selectionActivateCallback
+ *  @return full ELF path to the newly createUI (this is a formlayout)
+ *  @brief  
+ */
+global proc string mpUITabPhysicsTabConstraintsListCreate( string $selectionChangedCallback,
+                                                           string $selectionActivateCallback )
+{
+	string $parentUI = `setParent -query`;
+	
+	mpUITabPhysicsJointListDelete( $parentUI );
+	
+	string $layout = `formLayout -numberOfDivisions 100 "List"`;
+	{
+		mpUIEmbedUpdateCommand( "mpUITabPhysicsTabConstraintsListUpdate( \"" + $parentUI + "\" )" );
+		
+		string $constraintList = mpNodeListCreate( "List",
+		                                           $selectionChangedCallback,
+		                                           $selectionActivateCallback,
+		                                           "" );
+		
+		mpNodeListEdit( "-allowMultiSelection true", $constraintList );
+		
+		formLayout -edit -attachForm $constraintList "top"    0
+		                 -attachForm $constraintList "left"   0
+		                 -attachForm $constraintList "bottom" 0
+		                 -attachForm $constraintList "right"  0
+		                 
+		                 $layout;
+	}
+	setParent ..;
+	
+	mpUITabPhysicsTabConstraintsListUpdate( $parentUI );
+	
+	return $layout;
+}
+
+//--------------------------------------------------------------------------------------------
+/** @author Jeff Cotton
+ *  @date   10/14/2004
+ *  @param  $parentUI
+ *  @brief  
+ */
+global proc mpUITabPhysicsTabConstraintsSelectionChangedCallBack( string $parentUI )
+{
+	string $basePath             = $parentUI + "|Constraints";
+	string $listUI               = $basePath + "|List";
+	string $propertiesUI         = $basePath + "|Properties";
+	string $getSelectionCallback = "mpUITabPhysicsTabConstraintsListGetSelection( \"" + $listUI + "\" )";
+	
+	mpUITabPhysicsTabConstraintsPropertiesUpdate( $propertiesUI, $getSelectionCallback );
+}
+
+//--------------------------------------------------------------------------------------------
+/** @author Jeff Cotton
+ *  @date   10/14/2004
+ *  @param  $parentUI
+ *  @brief  
+ */
+global proc mpUITabPhysicsTabConstraintsUpdate( string $parentUI )
+{
+	string $basePath             = $parentUI + "|Constraints";
+	string $listUI               = $basePath + "|List";
+	string $propertiesUI         = $basePath + "|Properties";
+	string $getSelectionCallback = "mpUITabPhysicsTabConstraintsListGetSelection( \"" + $listUI + "\" )";
+	
+	mpUITabPhysicsTabConstraintsListUpdate( $listUI );
+	mpUITabPhysicsTabConstraintsPropertiesUpdate( $propertiesUI, $getSelectionCallback );
+}
+
+//--------------------------------------------------------------------------------------------
+/** @author Jeff Cotton
+ *  @date   10/14/2004
+ *  @param  $parentUI
+ *  @brief  
+ */
+global proc mpUITabPhysicsTabConstraintsDelete( string $parentUI )
+{
+	string $controlPath = $parentUI + "|Constraints";
+	
+	if ( `frameLayout -exists $controlPath` )
+	{
+		deleteUI $controlPath;
+	}
+}
+
+//--------------------------------------------------------------------------------------------
+/** @author Jeff Cotton
+ *  @date   10/14/2004
+ *  @return full ELF path to the newly createUI (this is a formLayout)
+ *  @brief  
+ */
+global proc string mpUITabPhysicsTabConstraintsCreate()
+{
+	string $parentUI = `setParent -query`;
+	
+	mpUITabPhysicsTabConstraintsDelete( $parentUI );
+	
+	string $layout = `formLayout -numberOfDivisions 100 Constraints`;
+	{
+		mpUIEmbedUpdateCommand( "mpUITabPhysicsTabConstraintsUpdate( \"" + $parentUI + "\" )" );
+		
+		string $constraintListFrame = `frameLayout -label        "Constraints"
+		                                           -marginHeight 5
+		                                           -marginWidth  5
+		                                           -collapsable  false
+		                                           List`;
+		{
+			mpUITabPhysicsTabConstraintsListCreate( "mpUITabPhysicsTabConstraintsSelectionChangedCallBack( \"" + $parentUI + "\" );", "" );
+		}
+		setParent ..;
+		
+		string $getSelectionCallback = "mpUITabPhysicsTabConstraintsListGetSelection( \"" + $constraintListFrame + "\" )";
+		
+		string $operationsFrame = `frameLayout -label         "Operations"
+		                                       -labelVisible  false 
+		                                       -borderVisible false 
+		                                       -marginHeight  2
+		                                       -marginWidth   2
+		                                       -collapsable   false
+		                                       Operations`;
+		{
+			//~ mpUITabPhysicsTabConstraintsOperationsCreate( $getSelectionCallback );
+		}
+		setParent ..;
+		
+		
+		string $constraintProperties = `frameLayout -label        "Properties"
+		                                            -marginHeight 5
+		                                            -marginWidth  5
+		                                            -collapsable  false
+		                                            Properties`;
+		{
+			mpUITabPhysicsTabConstraintsPropertiesCreate( $getSelectionCallback );
+		}
+		setParent ..;
+		
+		formLayout -edit -attachForm     $constraintListFrame  "top"    5
+		                 -attachForm     $constraintListFrame  "left"   5
+		                 -attachPosition $constraintListFrame  "bottom" 2 50
+		                 -attachForm     $constraintListFrame  "right"  5 
+		                 
+		                 -attachPosition $constraintProperties "top"    2 50
+		                 -attachForm     $constraintProperties "left"   5
+		                 -attachForm     $constraintProperties "bottom" 5
+		                 -attachForm     $constraintProperties "right"  5 
+		                 
+		                 $layout;
+	}
+	setParent ..;
+	
+	mpUITabPhysicsTabConstraintsUpdate( $parentUI );
+	
+	return $layout;
+}

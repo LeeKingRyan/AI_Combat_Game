@@ -1,0 +1,4 @@
+nodeid
+propid
+flags
+count

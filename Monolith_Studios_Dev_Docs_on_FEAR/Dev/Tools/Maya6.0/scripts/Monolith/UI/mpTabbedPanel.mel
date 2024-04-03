@@ -1,0 +1,321 @@
+//--------------------------------------------------------------------------------------------
+/** @file   Monolith/UI/mpTabbedPanel.mel
+ *  @date   08/17/2004
+ *
+ * (c) 1997-2004 Monolith Productions, Inc.  All Rights Reserved
+ */
+//--------------------------------------------------------------------------------------------
+
+// source the tabs scripts
+source "monolith/UI/mpTabMain.mel";
+source "monolith/UI/mpTabImport.mel";
+source "monolith/UI/mpTabExport.mel";
+source "monolith/UI/mpTabSkin.mel";
+source "monolith/UI/mpTabSockets.mel";
+source "monolith/UI/mpTabAnimation.mel";
+source "monolith/UI/mpTabPhysics.mel";
+
+//--------------------------------------------------------------------------------------------
+/** @author Jeff Cotton
+ *  @date   08/24/2004
+ *  @param  parentUI - full ELF path to the parent of this control
+ *  @param  filenames - list of filenames to add to the option menu  group
+ *  @param  selectedFilename - currently selected filename
+ *  @param  callback - open ended function call that takes as it's last parameter a string
+ *                      that is the name of the newly selected file 
+ *  @brief  Update the data in the selected file frame
+ *
+ *   Creates and fills in an option menu group with the current list of opened Monolith files.
+ *  Sets the selection to the currently selected file on the Main tab. The option Menu group
+ *  has to be destroyed and created on each update because it can only be populated during
+ *  creation because it is a menu, and the opened files list is dynamic. Because it has to
+ *  be destoryed and created on each update, we must pass the callback function here, because
+ *  -changeCommand can't be used in a query
+ *
+ *  @note callback needs to be an open ended function call without parens
+ *         i.e. "DoSomeStuff <userparams> ... " + [newSelectedFile]
+ */
+global proc mpUITabbedPanelSelectedFileFrameUpdate( string $parentUI,
+                                                    string $filenames[],
+                                                    string $selectedFilename,
+                                                    string $callback )
+{
+	string $lastLayout   = `setParent -query`;
+	string $parentLayout = $parentUI + "|SelectedFileFrame|Layout";
+	
+	setParent ( $parentLayout );
+	{
+		string $controlPath = $parentLayout + "|FilenameMenuGroup";
+		
+		// delete the option menu group
+		if( `optionMenuGrp -exists $controlPath` )
+		{
+			deleteUI $controlPath;
+		}
+		
+		string $modifiedCallback = $callback + " ( `optionMenuGrp -query -value \"" + $controlPath + "\"` )";
+		
+		// and recreate it
+		optionMenuGrp -adjustableColumn 1 -changeCommand $modifiedCallback "FilenameMenuGroup";
+			
+			// always create the empty filename item.
+			menuItem -label "[No Selection]";
+			
+			for ( $filename in $filenames )
+			{
+				string $currentItem = `menuItem -label $filename`;
+			}
+			
+		setParent ..;
+		
+		// select the correct file
+		optionMenuGrp -edit -value ( "" == $selectedFilename ? "[No Selection]" : $selectedFilename ) $controlPath;
+		
+		formLayout -edit -attachForm $controlPath "top"    0
+		                 -attachForm $controlPath "left"   0
+		                 -attachForm $controlPath "bottom" 0
+		                 -attachForm $controlPath "right"  0
+		                 $parentLayout;
+	}
+	setParent $lastLayout;
+}
+
+//--------------------------------------------------------------------------------------------
+/** @author Jeff Cotton
+ *  @date   08/24/2004
+ *  @param  callback - open ended function call that takes as it's last parameter a string
+ *                      that is the name of the newly selected file 
+ *  @brief  Creates a selected File Frame which after update contains an Option Menu Group
+ *           of opened Monolith files
+ */
+global proc string mpUITabbedPanelSelectedFileFrameCreate()
+{
+	// if the Monolith plug-in is not loaded then bail
+	mpEnsureMonolithPluginLoaded( false );
+	
+	string $selectedFileFrame;
+	
+	string $parentLayout = `setParent -query`;
+	
+	if ( `layout -exists $parentLayout` )
+	{
+		// if the selected file frame already exist then delete it so that it can be updated
+		//  if code changed.
+		if( `layout -exists ( $parentLayout + "|SelectedFileFrame" )` )
+		{
+			deleteUI -layout ( $parentLayout + "|SelectedFileFrame" );
+		}
+	
+		// just create the frame and a child layout so that the Option Menu group can
+		//  be added on update
+		$selectedFileFrame = `frameLayout -label       "Selected File"
+		                                  -width       200
+		                                  -collapsable true
+		                                  -borderStyle "etchedIn"
+		                                  SelectedFileFrame`;
+		{
+			string $filenameFormLayout = `formLayout Layout`;
+				
+			setParent ..;
+		}
+		setParent ..;
+	}
+	
+	return $selectedFileFrame;
+}
+
+//--------------------------------------------------------------------------------------------
+/** @author Jeff Cotton
+ *  @date   08/23/2004
+ *  @brief  updates the data in the tabs when a new tab is selected
+ */
+global proc mpUITabbedPanelPreSelectionChangeCommand()
+{
+	string $tabsUI = "MonolithTabbedPanel|ParentTabLayout";
+	
+	if ( `layout -exists $tabsUI` )
+	{
+		string $selectedTab = $tabsUI + "|" + `tabLayout -query -selectTab $tabsUI`;
+		
+		mpUIUpdate( $selectedTab );
+	}
+}
+
+//--------------------------------------------------------------------------------------------
+/** @author Jeff Cotton
+ *  @date   09/08/2004
+ *  @brief  
+ */
+global proc mpUITabbedPanelUpdate()
+{
+	mpUITabbedPanelPreSelectionChangeCommand();
+	
+	//~ mpUITabMainUpdate( "MonolithTabbedPanel|ParentTabLayout" );
+	//~ mpUITabImportUpdate( "MonolithTabbedPanel|ParentTabLayout" );
+	//~ mpUITabExportUpdate( "MonolithTabbedPanel|ParentTabLayout" );
+	//~ // mpUITabSkinUpdate( "MonolithTabbedPanel|ParentTabLayout" );
+	//~ mpUITabSocketsUpdate( "MonolithTabbedPanel|ParentTabLayout" );
+	//~ mpUITabAnimationUpdate( "MonolithTabbedPanel|ParentTabLayout" );
+	//~ mpUITabPhysicsUpdate( "MonolithTabbedPanel|ParentTabLayout" );
+}
+
+//--------------------------------------------------------------------------------------------
+/** @author Jeff Cotton
+ *  @date   09/01/2004
+ *  @brief  Destroy the Monolith TabbedPanel UI
+ */
+global proc mpUITabbedPanelDestroy()
+{
+	if( `window -exists MonolithTabbedPanel` )
+	{
+		deleteUI MonolithTabbedPanel;
+	}
+}
+
+//--------------------------------------------------------------------------------------------
+/** @author Jeff Cotton
+ *  @date   08/17/2004
+ *  @brief  Create the Monolith TabbedPanel UI
+ *
+ *  @todo decide whether tabs need to be specifically named elements. It may be wise to
+ *         decide that all tabs a decoupled, and we should never access a tab from it's
+ *         specific name. On the other hand if we can't access a specific tab, then global
+ *         variables need to be used for data passing.
+ */
+global proc mpUITabbedPanelCreate()
+{
+	// if the Monolith plug-in is not loaded then bail
+	mpEnsureMonolithPluginLoaded( false );
+	
+	// if the Monolith Tabbed Panel already exist then delete it so that it can be updated
+	//  if code changed.
+	mpUITabbedPanelDestroy();
+	
+	int $topLeftPos[2]  = { 100, 100 };
+	int $widthHeight[2] = { 100, 100 };
+	
+	// if window prefs exist then query them
+	if ( `windowPref -exists MonolithTabbedPanel` )
+	{
+		//	Query the window preference size and position.
+		$topLeftPos  = `windowPref -query -topLeftCorner MonolithTabbedPanel`;
+		$widthHeight = `windowPref -query -widthHeight MonolithTabbedPanel`;
+	}
+	// otherwise create them
+	else
+	{
+		windowPref MonolithTabbedPanel;
+	}
+	
+	// @note for some reason creating a window with the toolbox flag set causes the windowprefs
+	//        saved for that window to be slightly incorrect. More accuratly on each new
+	//        invocation of the app the toolbox window will shrink verticaly. So I'm making our
+	//        window not a toolbox window for now (maybe this is better anyway:).
+	string $monolithTabbedPanel = `window -menuBar        true
+	                                      -maximizeButton false
+	                                      -title          "Monolith Tabbed Panel"
+	                                      -topLeftCorner  $topLeftPos[0] $topLeftPos[1]
+	                                      -widthHeight    $widthHeight[0] $widthHeight[1]
+	                                      -sizeable       true
+	                                      //~ -toolbox       true
+	                                      -retain         
+	                                      MonolithTabbedPanel`;
+		
+		string $parentTabLayout = `tabLayout -preSelectCommand "mpUITabbedPanelPreSelectionChangeCommand"
+		                                     ParentTabLayout`;
+			
+			mpUITabMainCreate();
+			mpUITabImportCreate();
+			mpUITabExportCreate();
+			//~ mpUITabSkinCreate();
+			mpUITabSocketsCreate();
+			mpUITabAnimationCreate();
+			mpUITabPhysicsCreate();
+			
+		setParent ..;
+		
+	setParent ..;
+	
+	// add a scriptJob so that we can update the panel on selection changes
+	scriptJob -parent $monolithTabbedPanel
+	          -event  "SelectionChanged"
+	          "mpUITabbedPanelUpdate()";
+	
+	// add a scriptJob so that we can update the panel when new scenes are opened or cleared
+	scriptJob -parent $monolithTabbedPanel
+	          -event  "NewSceneOpened"
+	          "mpUITabbedPanelUpdate()";
+	
+	// add a scriptJob so that we can update the panel when new scenes are opened or cleared
+	scriptJob -parent $monolithTabbedPanel
+	          -event  "SceneOpened"
+	          "mpUITabbedPanelUpdate()";
+	
+	pluginInfo -changedCommand "mpUITabbedPanelUpdate()";
+}
+
+//--------------------------------------------------------------------------------------------
+/** @author Jeff Cotton
+ *  @date   08/17/2004
+ *  @brief  Get visible state of the Monolith TabbedPanel UI
+ */
+global proc int mpUITabbedPanelIsVisible()
+{
+	if ( !`window -exists MonolithTabbedPanel` )
+	{
+		return false;
+	}
+	else
+	{
+		return `window -query -visible MonolithTabbedPanel`;
+	}
+}
+
+//--------------------------------------------------------------------------------------------
+/** @author Jeff Cotton
+ *  @date   08/17/2004
+ *  @brief  Show the Monolith TabbedPanel UI
+ */
+global proc mpUITabbedPanelShow()
+{
+	// if the Monolith plug-in is not loaded then bail
+	mpEnsureMonolithPluginLoaded( false );
+	
+	if ( !`window -exists MonolithTabbedPanel` )
+	{
+		mpUITabbedPanelCreate();
+	}
+
+	window -edit -visible true MonolithTabbedPanel;
+}
+
+//--------------------------------------------------------------------------------------------
+/** @author Jeff Cotton
+ *  @date   08/17/2004
+ *  @brief  Hide the Monolith TabbedPanel UI
+ */
+global proc mpUITabbedPanelHide()
+{
+	window -edit -visible false MonolithTabbedPanel;
+}
+
+//--------------------------------------------------------------------------------------------
+/** @author Jeff Cotton
+ *  @date   08/17/2004
+ *  @brief  Show the Monolith TabbedPanel UI if hidden, hide it if visible.
+ *
+ *   this function doesn't use windowToggleVisible, because the mpTabbedWindowShow function
+ *  call creates the window if it dosen't exis, and windowToggleVisible would bypass the
+ *  creation
+ */
+global proc mpUITabbedPanelToggleVisible()
+{
+	if ( mpUITabbedPanelIsVisible() )
+	{
+		mpUITabbedPanelHide();
+	}
+	else
+	{
+		mpUITabbedPanelShow();
+	}
+}

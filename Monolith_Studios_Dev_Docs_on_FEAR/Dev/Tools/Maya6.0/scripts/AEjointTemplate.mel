@@ -1,0 +1,264 @@
+// Copyright (C) 1997-2004 Alias,
+// a division of Silicon Graphics Limited.
+// 
+// The information in this file is provided for the exclusive use of the
+// licensees of Alias.  Such users have the right to use, modify,
+// and incorporate this code into other products for purposes authorized
+// by the Alias license agreement, without fee.
+// 
+// ALIAS DISCLAIMS ALL WARRANTIES WITH REGARD TO THIS SOFTWARE,
+// INCLUDING ALL IMPLIED WARRANTIES OF MERCHANTABILITY AND FITNESS, IN NO
+// EVENT SHALL ALIAS BE LIABLE FOR ANY SPECIAL, INDIRECT OR
+// CONSEQUENTIAL DAMAGES OR ANY DAMAGES WHATSOEVER RESULTING FROM LOSS OF USE,
+// DATA OR PROFITS, WHETHER IN AN ACTION OF CONTRACT, NEGLIGENCE OR OTHER
+// TORTIOUS ACTION, ARISING OUT OF OR IN CONNECTION WITH THE USE OR
+// PERFORMANCE OF THIS SOFTWARE.
+
+//
+//  Alias|Wavefront Script File
+//
+//  Creation Date:	1997
+//  Author:		sw
+//
+//  Procedure Name:
+//	AEjointTemplate
+//
+//  Description:
+//	Creates the attribute editor controls for the joint Node
+//
+//  Input Value:
+//	nodeName
+//
+//  Output Value:
+//	None
+//
+
+global proc setJointDOFState ( string $attrJointTypeX, 
+			string $attrJointTypeY, 
+			string $attrJointTypeZ )
+{	
+	string $setX;
+	string $setY;
+	string $setZ;
+	string $XYZ;
+
+	string $nodeName[];
+	tokenize ($attrJointTypeX, ".", $nodeName);
+	int $jointTypeX = `getAttr $attrJointTypeX`;
+	int $jointTypeY = `getAttr $attrJointTypeY`;
+	int $jointTypeZ = `getAttr $attrJointTypeZ`;
+
+	// assign the corresponding strings for the joint types
+	if ( $jointTypeX ) 
+		 $setX = "x";
+	if ( $jointTypeY ) 
+		 $setY = "y";
+	if ( $jointTypeZ ) 
+		 $setZ = "z";
+
+	// put the three values together to be able to excute 
+	// the command correctly
+	$XYZ = ( $setX + $setY + $setZ );
+	
+
+	// execute the command to lock specific attributes
+	// and manip handles
+	joint -e -dof $XYZ $nodeName[0];
+}
+
+
+//
+//  Procedure Name:
+//	AEjointTypeReplace
+//
+//
+
+global proc AEjointTypeReplace ( string $attrJointTypeX, 
+			string $attrJointTypeY, 
+			string $attrJointTypeZ )
+{	
+	connectControl jointTypeBoxes -index 2  $attrJointTypeX;
+	connectControl jointTypeBoxes -index 3  $attrJointTypeY;
+	connectControl jointTypeBoxes -index 4  $attrJointTypeZ;
+	checkBoxGrp -e	
+		-cc ("setJointDOFState " 
+			+ $attrJointTypeX + " "
+			+ $attrJointTypeY + " "
+			+ $attrJointTypeZ)
+		jointTypeBoxes;
+}
+
+
+//
+//  Procedure Name:
+//	AEjointTypeNew
+//
+//
+
+global proc AEjointTypeNew ( string $attrJointTypeX, 
+			string $attrJointTypeY, 
+			string $attrJointTypeZ )
+{
+	checkBoxGrp -ncb 3 -l "Degrees of Freedom" 
+			-l1 "X" -l2 "Y" -l3 "Z" jointTypeBoxes; 
+	
+	connectControl jointTypeBoxes -index 2  $attrJointTypeX;
+	connectControl jointTypeBoxes -index 3  $attrJointTypeY;
+	connectControl jointTypeBoxes -index 4  $attrJointTypeZ;
+	checkBoxGrp -e	
+		-cc ("setJointDOFState " 
+			+ $attrJointTypeX + " "
+			+ $attrJointTypeY + " "
+			+ $attrJointTypeZ)
+		jointTypeBoxes;
+}
+
+
+global proc AEminRotateDampRangeNew( string $attrName )
+{
+	setUITemplate -pst attributeEditorTemplate;	
+ 	attrFieldGrp -attribute $attrName -l "Min Damp Range"
+            minRotateDampRangeGrp;
+    setUITemplate -ppt;
+}
+
+global proc AEminRotateDampRangeReplace( string $attrName )
+{
+ 	attrFieldGrp -e -attribute $attrName -l "Min Damp Range"
+            minRotateDampRangeGrp;
+}
+
+global proc AEmaxRotateDampRangeNew( string $attrName )
+{
+	setUITemplate -pst attributeEditorTemplate;	
+ 	attrFieldGrp -attribute $attrName -l "Max Damp Range"
+            maxRotateDampRangeGrp;
+    setUITemplate -ppt;
+}
+
+global proc AEmaxRotateDampRangeReplace( string $attrName )
+{
+ 	attrFieldGrp -e -attribute $attrName -l "Max Damp Range"
+            maxRotateDampRangeGrp;
+}
+
+global proc AEminRotateDampStrengthNew( string $attrName )
+{
+	setUITemplate -pst attributeEditorTemplate;	
+ 	attrFieldGrp -attribute $attrName -l "Min Damp Strength"
+            minRotateDampStrengthGrp;
+    setUITemplate -ppt;
+}
+
+global proc AEminRotateDampStrengthReplace( string $attrName )
+{
+ 	attrFieldGrp -e -attribute $attrName -l "Min Damp Strength"
+            minRotateDampStrengthGrp;
+}
+
+global proc AEmaxRotateDampStrengthNew( string $attrName )
+{
+	setUITemplate -pst attributeEditorTemplate;	
+ 	attrFieldGrp -attribute $attrName -l "Max Damp Strength"
+            maxRotateDampStrengthGrp;
+    setUITemplate -ppt;
+}
+
+global proc AEmaxRotateDampStrengthReplace( string $attrName )
+{
+ 	attrFieldGrp -e -attribute $attrName -l "Max Damp Strength"
+            maxRotateDampStrengthGrp;
+}
+
+global proc checkPuppetPartOther( string $nodeName )
+{
+	int $val = `getAttr ($nodeName+".type")`;
+	int $dimOther = ($val != 18);
+	editorTemplate -dimControl $nodeName "otherType" $dimOther;
+}
+
+//
+//  Procedure Name:
+//	AEjointTemplate
+//
+//
+
+global proc AEjointTemplate ( string $nodeName ) 
+{
+editorTemplate -beginScrollLayout;
+	// include/call base class/node attributes
+	AEtransformMain $nodeName;
+
+editorTemplate -beginLayout "Joint" -collapse 0;
+
+	editorTemplate -addControl "drawStyle";
+
+	editorTemplate -callCustom "AEjointTypeNew" "AEjointTypeReplace" 
+				"jointTypeX"
+				"jointTypeY"
+				"jointTypeZ";
+
+	editorTemplate -addControl "stiffness";
+
+	editorTemplate -addControl "preferredAngle";
+
+	editorTemplate -addControl "jointOrient";
+	editorTemplate -addControl "segmentScaleCompensate";
+
+
+	editorTemplate -beginLayout "Joint Labelling" -collapse 0;
+	editorTemplate -addControl "side";
+	editorTemplate -addControl "type" "checkPuppetPartOther";
+	editorTemplate -label "Other Type" -addControl "otherType";
+	editorTemplate -addControl "drawLabel";
+	editorTemplate -endLayout;
+	
+	editorTemplate -beginLayout "Joint Rotation Limit Damping";
+		editorTemplate -callCustom "AEminRotateDampRangeNew"
+			"AEminRotateDampRangeReplace" "minRotateDampRange";
+		editorTemplate -callCustom "AEmaxRotateDampRangeNew"
+			"AEmaxRotateDampRangeReplace" "maxRotateDampRange";
+		editorTemplate -callCustom "AEminRotateDampStrengthNew"
+			"AEminRotateDampStrengthReplace" "minRotateDampStrength";
+		editorTemplate -callCustom "AEmaxRotateDampStrengthNew"
+			"AEmaxRotateDampStrengthReplace" "maxRotateDampStrength";
+	editorTemplate -endLayout;
+
+
+editorTemplate -endLayout;
+
+	//suppressed attributes
+	editorTemplate -suppress "inverseScale";
+	editorTemplate -suppress "bindPose";
+	editorTemplate -suppress "bindRotation";
+	editorTemplate -suppress "bindJointOrient";
+	editorTemplate -suppress "bindScale";
+	editorTemplate -suppress "bindInverseScale";	
+	editorTemplate -suppress "bindSegmentScaleCompensate";	
+	editorTemplate -suppress "jointOrientType";
+	editorTemplate -suppress "jointType";	
+	editorTemplate -suppress "jointTypeX";
+	editorTemplate -suppress "jointTypeY";
+	editorTemplate -suppress "jointTypeZ";
+	editorTemplate -suppress "dofMask";
+	editorTemplate -suppress "minRotateDampRange";
+	editorTemplate -suppress "maxRotateDampRange";
+	editorTemplate -suppress "minRotateDampStrength";
+	editorTemplate -suppress "maxRotateDampStrength";
+	editorTemplate -suppress "fkRotate";
+	editorTemplate -suppress "ikRotate";
+
+	// include/call base class/node attributes
+	AEtransformNoScroll $nodeName;
+
+	// For joints bound to smooth skins
+	//
+	AEtransformSkinCluster $nodeName;
+
+	// Monolith Attributes
+	AEmpJointAttributes $nodeName;
+
+editorTemplate -addExtraControls;
+editorTemplate -endScrollLayout;
+
+}

@@ -1,0 +1,374 @@
+<HTML>
+	<META HTTP-EQUIV="Content-Type" CONTENT="text/html; charset=utf-8">
+	<META NAME="AUTHOR" CONTENT="Monolith Productions">
+	<HEAD>
+	<TITLE>PolyGrid</TITLE>
+	<STYLE TYPE="text/css">
+	<!--
+		A		{text-decoration:none}
+		A:hover 	{text-decoration:underline}
+	-->
+	</STYLE>
+	</HEAD>
+	<BODY BGCOLOR="#FFFFFF" LEFTMARGIN="6" TOPMARGIN="6" marginheight="6" marginwidth="6" STYLE="margin-top:6;margin-left:6;margin-bottom:6;margin-right:6;font:10pt Verdana,Arial,Helvetica;">
+
+	<TABLE BORDER="0" WIDTH="100%" CELLPADDING="0" CELLSPACING="0">
+	<TR>
+	<TD ALIGN="left" STYLE="font:8pt Verdana,Arial,Helvetica;"><A HREF="objref.toc.htm">Table of Contents</A></TD>
+	<TD ALIGN="right" STYLE="font:8pt Verdana,Arial,Helvetica;"><A HREF="objref.list.htm">Entire List</A></TD>
+	</TR>
+	</TABLE>
+	<BR>
+
+		<B>PolyGrid</B>
+	<HR SIZE="1">
+	Class that simulates the surface of a body of water.  If used with a liquid volume brush make sure the top of the volume brush is at the same Y value as the polygrid object if you want bullet vectors to perturb the surface of the water.
+	<BR><BR>
+
+	<TABLE BORDER="0" WIDTH="100%" CELLPADDING="1" CELLSPACING="0" BGCOLOR="#808080">
+	<TR><TD>
+	<TABLE BORDER="0" WIDTH="100%" CELLPADDING="4" CELLSPACING="1" COLS="3">
+	<TR>
+		<TD BGCOLOR="#FFFFFF" WIDTH="25%" STYLE="font:10pt Verdana,Arial,Helvetica;"><B>Message</B></TD>
+		<TD BGCOLOR="#FFFFFF" WIDTH="40%" STYLE="font:10pt Verdana,Arial,Helvetica;"><B>Description</B></TD>
+		<TD BGCOLOR="#FFFFFF" WIDTH="35%" STYLE="font:10pt Verdana,Arial,Helvetica;"><B>Example</B></TD>
+	</TR>
+			<TR>
+		<TD BGCOLOR="#FFFFFF" WIDTH="25%" STYLE="font:8pt Verdana,Arial,Helvetica;">VISIBLE &lt;bool&gt;</TD>
+		<TD BGCOLOR="#FFFFFF" WIDTH="40%" STYLE="font:8pt Verdana,Arial,Helvetica;">Toggles whether the object is visible.</TD>
+		<TD BGCOLOR="#FFFFFF" WIDTH="35%" STYLE="font:8pt Verdana,Arial,Helvetica;">msg &lt;ObjectName&gt; (VISIBLE 1)&lt;BR&gt;msg &lt;ObjectName&gt; (VISIBLE 0)</TD>
+	</TR>
+	<TR>
+		<TD BGCOLOR="#FFFFFF" WIDTH="25%" STYLE="font:8pt Verdana,Arial,Helvetica;">SOLID &lt;bool&gt;</TD>
+		<TD BGCOLOR="#FFFFFF" WIDTH="40%" STYLE="font:8pt Verdana,Arial,Helvetica;">Toggles whether the object is solid.</TD>
+		<TD BGCOLOR="#FFFFFF" WIDTH="35%" STYLE="font:8pt Verdana,Arial,Helvetica;">msg &lt;ObjectName&gt; (SOLID 1)&lt;BR&gt;msg &lt;ObjectName&gt; (SOLID 0)</TD>
+	</TR>
+	<TR>
+		<TD BGCOLOR="#FFFFFF" WIDTH="25%" STYLE="font:8pt Verdana,Arial,Helvetica;">HIDDEN &lt;bool&gt;</TD>
+		<TD BGCOLOR="#FFFFFF" WIDTH="40%" STYLE="font:8pt Verdana,Arial,Helvetica;">Toggles whether the object is visible, solid, and rayhit.</TD>
+		<TD BGCOLOR="#FFFFFF" WIDTH="35%" STYLE="font:8pt Verdana,Arial,Helvetica;">msg &lt;ObjectName&gt; (HIDDEN 1)&lt;BR&gt;msg &lt;ObjectName&gt; (HIDDEN 0)</TD>
+	</TR>
+	<TR>
+		<TD BGCOLOR="#FFFFFF" WIDTH="25%" STYLE="font:8pt Verdana,Arial,Helvetica;">REMOVE</TD>
+		<TD BGCOLOR="#FFFFFF" WIDTH="40%" STYLE="font:8pt Verdana,Arial,Helvetica;">Removes the object from the game permanently.</TD>
+		<TD BGCOLOR="#FFFFFF" WIDTH="35%" STYLE="font:8pt Verdana,Arial,Helvetica;">msg &lt;ObjectName&gt; REMOVE</TD>
+	</TR>
+	<TR>
+		<TD BGCOLOR="#FFFFFF" WIDTH="25%" STYLE="font:8pt Verdana,Arial,Helvetica;">CASTSHADOW &lt;bool&gt;</TD>
+		<TD BGCOLOR="#FFFFFF" WIDTH="40%" STYLE="font:8pt Verdana,Arial,Helvetica;">Toggles whether the object casts a shadow.</TD>
+		<TD BGCOLOR="#FFFFFF" WIDTH="35%" STYLE="font:8pt Verdana,Arial,Helvetica;">msg &lt;ObjectName&gt; (CASTSHADOW 1)&lt;BR&gt;msg &lt;ObjectName&gt; (CASTSHADOW 0)</TD>
+	</TR>
+	<TR>
+		<TD BGCOLOR="#FFFFFF" WIDTH="25%" STYLE="font:8pt Verdana,Arial,Helvetica;">SETPOS &lt;X&gt; &lt;Y&gt; &lt;Z&gt;</TD>
+		<TD BGCOLOR="#FFFFFF" WIDTH="40%" STYLE="font:8pt Verdana,Arial,Helvetica;">DEBUGGING ONLY.  Sets the position of an object.</TD>
+		<TD BGCOLOR="#FFFFFF" WIDTH="35%" STYLE="font:8pt Verdana,Arial,Helvetica;">msg &lt;ObjectName&gt; (MOVETOPOS 50.5 100 75)</TD>
+	</TR>
+	<TR>
+		<TD BGCOLOR="#FFFFFF" WIDTH="25%" STYLE="font:8pt Verdana,Arial,Helvetica;">MOVETOPOS &lt;X&gt; &lt;Y&gt; &lt;Z&gt;</TD>
+		<TD BGCOLOR="#FFFFFF" WIDTH="40%" STYLE="font:8pt Verdana,Arial,Helvetica;">DEBUGGING ONLY.  Moves to the position, with collisions.</TD>
+		<TD BGCOLOR="#FFFFFF" WIDTH="35%" STYLE="font:8pt Verdana,Arial,Helvetica;">msg &lt;ObjectName&gt; (MOVETOPOS 50.5 100 75)</TD>
+	</TR>
+	<TR>
+		<TD BGCOLOR="#FFFFFF" WIDTH="25%" STYLE="font:8pt Verdana,Arial,Helvetica;">SETROTATION &lt;yaw&gt; &lt;pitch&gt; &lt;roll&gt;</TD>
+		<TD BGCOLOR="#FFFFFF" WIDTH="40%" STYLE="font:8pt Verdana,Arial,Helvetica;">DEBUGGING ONLY.  Rotates object to euler angles.</TD>
+		<TD BGCOLOR="#FFFFFF" WIDTH="35%" STYLE="font:8pt Verdana,Arial,Helvetica;">msg &lt;ObjectName&gt; (SETROTATION 90.0 0 0)</TD>
+	</TR>
+	<TR>
+		<TD BGCOLOR="#FFFFFF" WIDTH="25%" STYLE="font:8pt Verdana,Arial,Helvetica;">COPYXFORM &lt;object&gt;</TD>
+		<TD BGCOLOR="#FFFFFF" WIDTH="40%" STYLE="font:8pt Verdana,Arial,Helvetica;">DEBUGGING ONLY.  Copies trasform of &lt;object&gt; to this object.</TD>
+		<TD BGCOLOR="#FFFFFF" WIDTH="35%" STYLE="font:8pt Verdana,Arial,Helvetica;">msg &lt;ObjectName&gt; (COPYXFORM ThePoint)</TD>
+	</TR>
+	<TR>
+		<TD BGCOLOR="#FFFFFF" WIDTH="25%" STYLE="font:8pt Verdana,Arial,Helvetica;">ON &lt;Modifier&gt;</TD>
+		<TD BGCOLOR="#FFFFFF" WIDTH="40%" STYLE="font:8pt Verdana,Arial,Helvetica;">Turns a PolyGridModifier object specified in the WavePropInfo property of the PolyGrid on. The command is targeted at the Modifier number</TD>
+		<TD BGCOLOR="#FFFFFF" WIDTH="35%" STYLE="font:8pt Verdana,Arial,Helvetica;">To turn on the PolyGridModifier specified in the Modifier1 property field of a PolyGrid named "PolyGrid" the command would look like:<BR><BR>msg PolyGrid (ON 1)</TD>
+	</TR>
+	<TR>
+		<TD BGCOLOR="#FFFFFF" WIDTH="25%" STYLE="font:8pt Verdana,Arial,Helvetica;">OFF &lt;Modifier&gt;</TD>
+		<TD BGCOLOR="#FFFFFF" WIDTH="40%" STYLE="font:8pt Verdana,Arial,Helvetica;">Turns a PolyGridModifier object specified in the WavePropInfo property of the PolyGrid off. The command is targeted at the Modifier number</TD>
+		<TD BGCOLOR="#FFFFFF" WIDTH="35%" STYLE="font:8pt Verdana,Arial,Helvetica;">To turn off the PolyGridModifier specified in the Modifier1 property field of a PolyGrid named "PolyGrid" the command would look like:<BR><BR>msg PolyGrid (OFF 1)</TD>
+	</TR>
+
+	</TABLE>
+	</TD>
+	</TR>
+	</TABLE>
+
+	<BR><BR>
+
+	<TABLE BORDER="0" WIDTH="100%" CELLPADDING="1" CELLSPACING="0" BGCOLOR="#808080">
+	<TR><TD>
+	<TABLE BORDER="0" WIDTH="100%" CELLPADDING="4" CELLSPACING="1" COLS="3">
+	<TR>
+		<TD BGCOLOR="#FFFFFF" WIDTH="25%" STYLE="font:10pt Verdana,Arial,Helvetica;"><B>Property</B></TD>
+		<TD BGCOLOR="#FFFFFF" WIDTH="40%" STYLE="font:10pt Verdana,Arial,Helvetica;"><B>Description</B></TD>
+		<TD BGCOLOR="#FFFFFF" WIDTH="17%" STYLE="font:10pt Verdana,Arial,Helvetica;"><B>Type</B></TD>
+		<TD BGCOLOR="#FFFFFF" WIDTH="18%" STYLE="font:10pt Verdana,Arial,Helvetica;"><B>Default</B></TD>
+	</TR>
+			<TR>
+		<TD BGCOLOR="#FFFFFF" WIDTH="25%" STYLE="font:8pt Verdana,Arial,Helvetica;">Name</TD>
+		<TD BGCOLOR="#FFFFFF" WIDTH="40%" STYLE="font:8pt Verdana,Arial,Helvetica;">The name of this object</TD>
+		<TD BGCOLOR="#FFFFFF" WIDTH="17%" STYLE="font:8pt Verdana,Arial,Helvetica;">String</TD>
+		<TD BGCOLOR="#FFFFFF" WIDTH="18%" STYLE="font:8pt Verdana,Arial,Helvetica;">noname</TD>
+	</TR>
+	<TR>
+		<TD BGCOLOR="#FFFFFF" WIDTH="25%" STYLE="font:8pt Verdana,Arial,Helvetica;">Pos</TD>
+		<TD BGCOLOR="#FFFFFF" WIDTH="40%" STYLE="font:8pt Verdana,Arial,Helvetica;">The position in the world of this object.</TD>
+		<TD BGCOLOR="#FFFFFF" WIDTH="17%" STYLE="font:8pt Verdana,Arial,Helvetica;">Vector (Distance)</TD>
+		<TD BGCOLOR="#FFFFFF" WIDTH="18%" STYLE="font:8pt Verdana,Arial,Helvetica;">0.000000, 0.000000, 0.000000</TD>
+	</TR>
+	<TR>
+		<TD BGCOLOR="#FFFFFF" WIDTH="25%" STYLE="font:8pt Verdana,Arial,Helvetica;">Rotation</TD>
+		<TD BGCOLOR="#FFFFFF" WIDTH="40%" STYLE="font:8pt Verdana,Arial,Helvetica;">The orientation of this object represented by euler angles in degrees</TD>
+		<TD BGCOLOR="#FFFFFF" WIDTH="17%" STYLE="font:8pt Verdana,Arial,Helvetica;">Rotation</TD>
+		<TD BGCOLOR="#FFFFFF" WIDTH="18%" STYLE="font:8pt Verdana,Arial,Helvetica;">0.000000, 0.000000, 0.000000</TD>
+	</TR>
+	<TR>
+		<TD BGCOLOR="#FFFFFF" WIDTH="25%" STYLE="font:8pt Verdana,Arial,Helvetica;">Template</TD>
+		<TD BGCOLOR="#FFFFFF" WIDTH="40%" STYLE="font:8pt Verdana,Arial,Helvetica;">Indicates that this object will not exist at runtime, and may be used as an object template for Spawner objects</TD>
+		<TD BGCOLOR="#FFFFFF" WIDTH="17%" STYLE="font:8pt Verdana,Arial,Helvetica;">Boolean</TD>
+		<TD BGCOLOR="#FFFFFF" WIDTH="18%" STYLE="font:8pt Verdana,Arial,Helvetica;">0.000000</TD>
+	</TR>
+	<TR>
+		<TD BGCOLOR="#FFFFFF" WIDTH="25%" STYLE="font:8pt Verdana,Arial,Helvetica;">IsGore</TD>
+		<TD BGCOLOR="#FFFFFF" WIDTH="40%" STYLE="font:8pt Verdana,Arial,Helvetica;">Indicates that this object is gory and should not exist for low-violence clients.</TD>
+		<TD BGCOLOR="#FFFFFF" WIDTH="17%" STYLE="font:8pt Verdana,Arial,Helvetica;">Boolean</TD>
+		<TD BGCOLOR="#FFFFFF" WIDTH="18%" STYLE="font:8pt Verdana,Arial,Helvetica;">0.000000</TD>
+	</TR>
+	<TR>
+		<TD BGCOLOR="#FFFFFF" WIDTH="25%" STYLE="font:8pt Verdana,Arial,Helvetica;">ObjectLOD</TD>
+		<TD BGCOLOR="#FFFFFF" WIDTH="40%" STYLE="font:8pt Verdana,Arial,Helvetica;">This value indicates at which detail levels the object will exist. For example at Low, this object will always exist, at Medium it will only exist in medium and high detail, and Never will cause the object to never exist.</TD>
+		<TD BGCOLOR="#FFFFFF" WIDTH="17%" STYLE="font:8pt Verdana,Arial,Helvetica;">String (StaticList)</TD>
+		<TD BGCOLOR="#FFFFFF" WIDTH="18%" STYLE="font:8pt Verdana,Arial,Helvetica;">Low</TD>
+	</TR>
+	<TR>
+		<TD BGCOLOR="#FFFFFF" WIDTH="25%" STYLE="font:8pt Verdana,Arial,Helvetica;">Dims</TD>
+		<TD BGCOLOR="#FFFFFF" WIDTH="40%" STYLE="font:8pt Verdana,Arial,Helvetica;">Determines the size of the grid. Polygrids normally face up (Y axis), so a typical polygrid Dims setting would be 256 8 256, for a thin grid that fills a large hole in a floor.</TD>
+		<TD BGCOLOR="#FFFFFF" WIDTH="17%" STYLE="font:8pt Verdana,Arial,Helvetica;">Vector (Dims LocalDims)</TD>
+		<TD BGCOLOR="#FFFFFF" WIDTH="18%" STYLE="font:8pt Verdana,Arial,Helvetica;">0.000000, 0.000000, 0.000000</TD>
+	</TR>
+	<TR>
+		<TD BGCOLOR="#FFFFFF" WIDTH="25%" STYLE="font:8pt Verdana,Arial,Helvetica;">Color</TD>
+		<TD BGCOLOR="#FFFFFF" WIDTH="40%" STYLE="font:8pt Verdana,Arial,Helvetica;">Specifies the color of the polygrid</TD>
+		<TD BGCOLOR="#FFFFFF" WIDTH="17%" STYLE="font:8pt Verdana,Arial,Helvetica;">Color</TD>
+		<TD BGCOLOR="#FFFFFF" WIDTH="18%" STYLE="font:8pt Verdana,Arial,Helvetica;">255.000000, 255.000000, 255.000000</TD>
+	</TR>
+	<TR>
+		<TD BGCOLOR="#FFFFFF" WIDTH="25%" STYLE="font:8pt Verdana,Arial,Helvetica;">Material</TD>
+		<TD BGCOLOR="#FFFFFF" WIDTH="40%" STYLE="font:8pt Verdana,Arial,Helvetica;">The material that will be used to render this polygrid</TD>
+		<TD BGCOLOR="#FFFFFF" WIDTH="17%" STYLE="font:8pt Verdana,Arial,Helvetica;">String (Filename)</TD>
+		<TD BGCOLOR="#FFFFFF" WIDTH="18%" STYLE="font:8pt Verdana,Arial,Helvetica;"></TD>
+	</TR>
+	<TR>
+		<TD BGCOLOR="#FFFFFF" WIDTH="25%" STYLE="font:8pt Verdana,Arial,Helvetica;">TextureInfo</TD>
+		<TD BGCOLOR="#FFFFFF" WIDTH="40%" STYLE="font:8pt Verdana,Arial,Helvetica;">Information describing how the texturing is applied to the polygrid surface</TD>
+		<TD BGCOLOR="#FFFFFF" WIDTH="17%" STYLE="font:8pt Verdana,Arial,Helvetica;">Integer (GroupOwner)</TD>
+		<TD BGCOLOR="#FFFFFF" WIDTH="18%" STYLE="font:8pt Verdana,Arial,Helvetica;">0.000000</TD>
+	</TR>
+	<TR>
+		<TD BGCOLOR="#FFFFFF" WIDTH="25%" STYLE="font:8pt Verdana,Arial,Helvetica;">XScaleMin</TD>
+		<TD BGCOLOR="#FFFFFF" WIDTH="40%" STYLE="font:8pt Verdana,Arial,Helvetica;">Specifies the minimum scale that the texture used on the PolyGrid will scale to. This allows you to have the texture on the PolyGrid swim up and down in size. The number represents the number of units over which a texture will repeat</TD>
+		<TD BGCOLOR="#FFFFFF" WIDTH="17%" STYLE="font:8pt Verdana,Arial,Helvetica;">Float</TD>
+		<TD BGCOLOR="#FFFFFF" WIDTH="18%" STYLE="font:8pt Verdana,Arial,Helvetica;">100.000000</TD>
+	</TR>
+	<TR>
+		<TD BGCOLOR="#FFFFFF" WIDTH="25%" STYLE="font:8pt Verdana,Arial,Helvetica;">XScaleMax</TD>
+		<TD BGCOLOR="#FFFFFF" WIDTH="40%" STYLE="font:8pt Verdana,Arial,Helvetica;">See XScaleMin.</TD>
+		<TD BGCOLOR="#FFFFFF" WIDTH="17%" STYLE="font:8pt Verdana,Arial,Helvetica;">Float</TD>
+		<TD BGCOLOR="#FFFFFF" WIDTH="18%" STYLE="font:8pt Verdana,Arial,Helvetica;">100.000000</TD>
+	</TR>
+	<TR>
+		<TD BGCOLOR="#FFFFFF" WIDTH="25%" STYLE="font:8pt Verdana,Arial,Helvetica;">YScaleMin</TD>
+		<TD BGCOLOR="#FFFFFF" WIDTH="40%" STYLE="font:8pt Verdana,Arial,Helvetica;">Specifies the maximum texture scale on the PolyGrid. See XScaleMin.</TD>
+		<TD BGCOLOR="#FFFFFF" WIDTH="17%" STYLE="font:8pt Verdana,Arial,Helvetica;">Float</TD>
+		<TD BGCOLOR="#FFFFFF" WIDTH="18%" STYLE="font:8pt Verdana,Arial,Helvetica;">100.000000</TD>
+	</TR>
+	<TR>
+		<TD BGCOLOR="#FFFFFF" WIDTH="25%" STYLE="font:8pt Verdana,Arial,Helvetica;">YScaleMax</TD>
+		<TD BGCOLOR="#FFFFFF" WIDTH="40%" STYLE="font:8pt Verdana,Arial,Helvetica;">See XscaleMax.</TD>
+		<TD BGCOLOR="#FFFFFF" WIDTH="17%" STYLE="font:8pt Verdana,Arial,Helvetica;">Float</TD>
+		<TD BGCOLOR="#FFFFFF" WIDTH="18%" STYLE="font:8pt Verdana,Arial,Helvetica;">100.000000</TD>
+	</TR>
+	<TR>
+		<TD BGCOLOR="#FFFFFF" WIDTH="25%" STYLE="font:8pt Verdana,Arial,Helvetica;">XScaleDuration</TD>
+		<TD BGCOLOR="#FFFFFF" WIDTH="40%" STYLE="font:8pt Verdana,Arial,Helvetica;">Determines the length of time the PolyGrid will take to scale between XScaleMin and XScaleMax.</TD>
+		<TD BGCOLOR="#FFFFFF" WIDTH="17%" STYLE="font:8pt Verdana,Arial,Helvetica;">Float</TD>
+		<TD BGCOLOR="#FFFFFF" WIDTH="18%" STYLE="font:8pt Verdana,Arial,Helvetica;">10.000000</TD>
+	</TR>
+	<TR>
+		<TD BGCOLOR="#FFFFFF" WIDTH="25%" STYLE="font:8pt Verdana,Arial,Helvetica;">YScaleDuration</TD>
+		<TD BGCOLOR="#FFFFFF" WIDTH="40%" STYLE="font:8pt Verdana,Arial,Helvetica;">See XScaleDuration.</TD>
+		<TD BGCOLOR="#FFFFFF" WIDTH="17%" STYLE="font:8pt Verdana,Arial,Helvetica;">Float</TD>
+		<TD BGCOLOR="#FFFFFF" WIDTH="18%" STYLE="font:8pt Verdana,Arial,Helvetica;">10.000000</TD>
+	</TR>
+	<TR>
+		<TD BGCOLOR="#FFFFFF" WIDTH="25%" STYLE="font:8pt Verdana,Arial,Helvetica;">XPan</TD>
+		<TD BGCOLOR="#FFFFFF" WIDTH="40%" STYLE="font:8pt Verdana,Arial,Helvetica;">If the PolyGrid is textured, you can enter a panning speed here to have the texture pan along the PolyGrid's X-axis. Speed is in game units/second. Typical values would be from –20 to 20 for fairly fast speed and –5 to 5 for slow.</TD>
+		<TD BGCOLOR="#FFFFFF" WIDTH="17%" STYLE="font:8pt Verdana,Arial,Helvetica;">Float</TD>
+		<TD BGCOLOR="#FFFFFF" WIDTH="18%" STYLE="font:8pt Verdana,Arial,Helvetica;">10.000000</TD>
+	</TR>
+	<TR>
+		<TD BGCOLOR="#FFFFFF" WIDTH="25%" STYLE="font:8pt Verdana,Arial,Helvetica;">YPan</TD>
+		<TD BGCOLOR="#FFFFFF" WIDTH="40%" STYLE="font:8pt Verdana,Arial,Helvetica;">See XPan.</TD>
+		<TD BGCOLOR="#FFFFFF" WIDTH="17%" STYLE="font:8pt Verdana,Arial,Helvetica;">Float</TD>
+		<TD BGCOLOR="#FFFFFF" WIDTH="18%" STYLE="font:8pt Verdana,Arial,Helvetica;">10.000000</TD>
+	</TR>
+	<TR>
+		<TD BGCOLOR="#FFFFFF" WIDTH="25%" STYLE="font:8pt Verdana,Arial,Helvetica;">Alpha</TD>
+		<TD BGCOLOR="#FFFFFF" WIDTH="40%" STYLE="font:8pt Verdana,Arial,Helvetica;">The translucency of the grid as a whole. If you want to use a texture without an alpha mask or fine-tune the alpha for a texture that does have an alpha mask, this is a useful property. A value of 1 is fully opaque, .5 is half-translucent and 0 is transparent.</TD>
+		<TD BGCOLOR="#FFFFFF" WIDTH="17%" STYLE="font:8pt Verdana,Arial,Helvetica;">Float</TD>
+		<TD BGCOLOR="#FFFFFF" WIDTH="18%" STYLE="font:8pt Verdana,Arial,Helvetica;">0.700000</TD>
+	</TR>
+	<TR>
+		<TD BGCOLOR="#FFFFFF" WIDTH="25%" STYLE="font:8pt Verdana,Arial,Helvetica;">RenderSolid</TD>
+		<TD BGCOLOR="#FFFFFF" WIDTH="40%" STYLE="font:8pt Verdana,Arial,Helvetica;">Determines if this polygrid should be rendered as a solid or translucent object</TD>
+		<TD BGCOLOR="#FFFFFF" WIDTH="17%" STYLE="font:8pt Verdana,Arial,Helvetica;">Boolean</TD>
+		<TD BGCOLOR="#FFFFFF" WIDTH="18%" STYLE="font:8pt Verdana,Arial,Helvetica;">0.000000</TD>
+	</TR>
+	<TR>
+		<TD BGCOLOR="#FFFFFF" WIDTH="25%" STYLE="font:8pt Verdana,Arial,Helvetica;">NumPoliesX</TD>
+		<TD BGCOLOR="#FFFFFF" WIDTH="40%" STYLE="font:8pt Verdana,Arial,Helvetica;">The number of segments the polygrid will have along the X direction. The higher the number of polies you add, the smoother the grid will look, but it will also take longer to render.</TD>
+		<TD BGCOLOR="#FFFFFF" WIDTH="17%" STYLE="font:8pt Verdana,Arial,Helvetica;">Integer</TD>
+		<TD BGCOLOR="#FFFFFF" WIDTH="18%" STYLE="font:8pt Verdana,Arial,Helvetica;">16.000000</TD>
+	</TR>
+	<TR>
+		<TD BGCOLOR="#FFFFFF" WIDTH="25%" STYLE="font:8pt Verdana,Arial,Helvetica;">NumPoliesY</TD>
+		<TD BGCOLOR="#FFFFFF" WIDTH="40%" STYLE="font:8pt Verdana,Arial,Helvetica;">The number of segments the polygrid will have along the Y direction. The higher the number of polies you add, the smoother the grid will look, but it will also take longer to render.</TD>
+		<TD BGCOLOR="#FFFFFF" WIDTH="17%" STYLE="font:8pt Verdana,Arial,Helvetica;">Integer</TD>
+		<TD BGCOLOR="#FFFFFF" WIDTH="18%" STYLE="font:8pt Verdana,Arial,Helvetica;">16.000000</TD>
+	</TR>
+	<TR>
+		<TD BGCOLOR="#FFFFFF" WIDTH="25%" STYLE="font:8pt Verdana,Arial,Helvetica;">MinResolutionScale</TD>
+		<TD BGCOLOR="#FFFFFF" WIDTH="40%" STYLE="font:8pt Verdana,Arial,Helvetica;">A value in the range of [0..1] that indicates the minimum scale that can be used for the resolution of the polygrid. 0 allows it to go down to 2x2, 1 prevents the resolution from changing with LOD, 0.5 allows dropping of 50% resolution at lowest LOD, etc.</TD>
+		<TD BGCOLOR="#FFFFFF" WIDTH="17%" STYLE="font:8pt Verdana,Arial,Helvetica;">Float</TD>
+		<TD BGCOLOR="#FFFFFF" WIDTH="18%" STYLE="font:8pt Verdana,Arial,Helvetica;">0.000000</TD>
+	</TR>
+	<TR>
+		<TD BGCOLOR="#FFFFFF" WIDTH="25%" STYLE="font:8pt Verdana,Arial,Helvetica;">WavePropInfo</TD>
+		<TD BGCOLOR="#FFFFFF" WIDTH="40%" STYLE="font:8pt Verdana,Arial,Helvetica;">Properties that control how the surface of the water moves</TD>
+		<TD BGCOLOR="#FFFFFF" WIDTH="17%" STYLE="font:8pt Verdana,Arial,Helvetica;">Integer (GroupOwner)</TD>
+		<TD BGCOLOR="#FFFFFF" WIDTH="18%" STYLE="font:8pt Verdana,Arial,Helvetica;">0.000000</TD>
+	</TR>
+	<TR>
+		<TD BGCOLOR="#FFFFFF" WIDTH="25%" STYLE="font:8pt Verdana,Arial,Helvetica;">TimeScale</TD>
+		<TD BGCOLOR="#FFFFFF" WIDTH="40%" STYLE="font:8pt Verdana,Arial,Helvetica;">A multiplier used to speed up time on the surface which causes waves to move up and down faster.</TD>
+		<TD BGCOLOR="#FFFFFF" WIDTH="17%" STYLE="font:8pt Verdana,Arial,Helvetica;">Float</TD>
+		<TD BGCOLOR="#FFFFFF" WIDTH="18%" STYLE="font:8pt Verdana,Arial,Helvetica;">1.000000</TD>
+	</TR>
+	<TR>
+		<TD BGCOLOR="#FFFFFF" WIDTH="25%" STYLE="font:8pt Verdana,Arial,Helvetica;">DampenScale</TD>
+		<TD BGCOLOR="#FFFFFF" WIDTH="40%" STYLE="font:8pt Verdana,Arial,Helvetica;">A multiplier used to remove energy from the system. So if it was .95, it would use 95% of the previous energy, allowing 5% to dissappear, this prevents water simulations from exploding.</TD>
+		<TD BGCOLOR="#FFFFFF" WIDTH="17%" STYLE="font:8pt Verdana,Arial,Helvetica;">Float</TD>
+		<TD BGCOLOR="#FFFFFF" WIDTH="18%" STYLE="font:8pt Verdana,Arial,Helvetica;">0.990000</TD>
+	</TR>
+	<TR>
+		<TD BGCOLOR="#FFFFFF" WIDTH="25%" STYLE="font:8pt Verdana,Arial,Helvetica;">SpringCoeff</TD>
+		<TD BGCOLOR="#FFFFFF" WIDTH="40%" STYLE="font:8pt Verdana,Arial,Helvetica;">Coefficient for the rigidness of the water springs. Raising this value will cause the water to move back into place faster, and lower will make it look more viscous.</TD>
+		<TD BGCOLOR="#FFFFFF" WIDTH="17%" STYLE="font:8pt Verdana,Arial,Helvetica;">Float</TD>
+		<TD BGCOLOR="#FFFFFF" WIDTH="18%" STYLE="font:8pt Verdana,Arial,Helvetica;">40.000000</TD>
+	</TR>
+	<TR>
+		<TD BGCOLOR="#FFFFFF" WIDTH="25%" STYLE="font:8pt Verdana,Arial,Helvetica;">ModelDisplace</TD>
+		<TD BGCOLOR="#FFFFFF" WIDTH="40%" STYLE="font:8pt Verdana,Arial,Helvetica;">Specifies how much a model moving through the surface should displace. Higher values will create higher waves.</TD>
+		<TD BGCOLOR="#FFFFFF" WIDTH="17%" STYLE="font:8pt Verdana,Arial,Helvetica;">Float</TD>
+		<TD BGCOLOR="#FFFFFF" WIDTH="18%" STYLE="font:8pt Verdana,Arial,Helvetica;">10.000000</TD>
+	</TR>
+	<TR>
+		<TD BGCOLOR="#FFFFFF" WIDTH="25%" STYLE="font:8pt Verdana,Arial,Helvetica;">MinFrameRate</TD>
+		<TD BGCOLOR="#FFFFFF" WIDTH="40%" STYLE="font:8pt Verdana,Arial,Helvetica;">The minimum frame rate that the polygrid can run at. If the frame rate drops below this the polygrid will just pretent it is running at this frame rate</TD>
+		<TD BGCOLOR="#FFFFFF" WIDTH="17%" STYLE="font:8pt Verdana,Arial,Helvetica;">Float</TD>
+		<TD BGCOLOR="#FFFFFF" WIDTH="18%" STYLE="font:8pt Verdana,Arial,Helvetica;">10.000000</TD>
+	</TR>
+	<TR>
+		<TD BGCOLOR="#FFFFFF" WIDTH="25%" STYLE="font:8pt Verdana,Arial,Helvetica;">NumStartupFrames</TD>
+		<TD BGCOLOR="#FFFFFF" WIDTH="40%" STYLE="font:8pt Verdana,Arial,Helvetica;">This indicates how many frames will be simulated when the polygrid is created. This helps prevent a completely flat surface when a level is loaded</TD>
+		<TD BGCOLOR="#FFFFFF" WIDTH="17%" STYLE="font:8pt Verdana,Arial,Helvetica;">Integer</TD>
+		<TD BGCOLOR="#FFFFFF" WIDTH="18%" STYLE="font:8pt Verdana,Arial,Helvetica;">0.000000</TD>
+	</TR>
+	<TR>
+		<TD BGCOLOR="#FFFFFF" WIDTH="25%" STYLE="font:8pt Verdana,Arial,Helvetica;">Modifier1</TD>
+		<TD BGCOLOR="#FFFFFF" WIDTH="40%" STYLE="font:8pt Verdana,Arial,Helvetica;">Name of a modifier that will affect the surface.</TD>
+		<TD BGCOLOR="#FFFFFF" WIDTH="17%" STYLE="font:8pt Verdana,Arial,Helvetica;">String</TD>
+		<TD BGCOLOR="#FFFFFF" WIDTH="18%" STYLE="font:8pt Verdana,Arial,Helvetica;"></TD>
+	</TR>
+	<TR>
+		<TD BGCOLOR="#FFFFFF" WIDTH="25%" STYLE="font:8pt Verdana,Arial,Helvetica;">Modifier2</TD>
+		<TD BGCOLOR="#FFFFFF" WIDTH="40%" STYLE="font:8pt Verdana,Arial,Helvetica;">Name of a modifier that will affect the surface.</TD>
+		<TD BGCOLOR="#FFFFFF" WIDTH="17%" STYLE="font:8pt Verdana,Arial,Helvetica;">String</TD>
+		<TD BGCOLOR="#FFFFFF" WIDTH="18%" STYLE="font:8pt Verdana,Arial,Helvetica;"></TD>
+	</TR>
+	<TR>
+		<TD BGCOLOR="#FFFFFF" WIDTH="25%" STYLE="font:8pt Verdana,Arial,Helvetica;">Modifier3</TD>
+		<TD BGCOLOR="#FFFFFF" WIDTH="40%" STYLE="font:8pt Verdana,Arial,Helvetica;">Name of a modifier that will affect the surface.</TD>
+		<TD BGCOLOR="#FFFFFF" WIDTH="17%" STYLE="font:8pt Verdana,Arial,Helvetica;">String</TD>
+		<TD BGCOLOR="#FFFFFF" WIDTH="18%" STYLE="font:8pt Verdana,Arial,Helvetica;"></TD>
+	</TR>
+	<TR>
+		<TD BGCOLOR="#FFFFFF" WIDTH="25%" STYLE="font:8pt Verdana,Arial,Helvetica;">Modifier4</TD>
+		<TD BGCOLOR="#FFFFFF" WIDTH="40%" STYLE="font:8pt Verdana,Arial,Helvetica;">Name of a modifier that will affect the surface.</TD>
+		<TD BGCOLOR="#FFFFFF" WIDTH="17%" STYLE="font:8pt Verdana,Arial,Helvetica;">String</TD>
+		<TD BGCOLOR="#FFFFFF" WIDTH="18%" STYLE="font:8pt Verdana,Arial,Helvetica;"></TD>
+	</TR>
+	<TR>
+		<TD BGCOLOR="#FFFFFF" WIDTH="25%" STYLE="font:8pt Verdana,Arial,Helvetica;">RenderTargets</TD>
+		<TD BGCOLOR="#FFFFFF" WIDTH="40%" STYLE="font:8pt Verdana,Arial,Helvetica;">Properties that control automatically creating render targets</TD>
+		<TD BGCOLOR="#FFFFFF" WIDTH="17%" STYLE="font:8pt Verdana,Arial,Helvetica;">Integer (GroupOwner)</TD>
+		<TD BGCOLOR="#FFFFFF" WIDTH="18%" STYLE="font:8pt Verdana,Arial,Helvetica;">0.000000</TD>
+	</TR>
+	<TR>
+		<TD BGCOLOR="#FFFFFF" WIDTH="25%" STYLE="font:8pt Verdana,Arial,Helvetica;">ReflectionMap</TD>
+		<TD BGCOLOR="#FFFFFF" WIDTH="40%" STYLE="font:8pt Verdana,Arial,Helvetica;">Create a reflection map render target, bound to the tReflectionMap parameter of the material</TD>
+		<TD BGCOLOR="#FFFFFF" WIDTH="17%" STYLE="font:8pt Verdana,Arial,Helvetica;">Boolean</TD>
+		<TD BGCOLOR="#FFFFFF" WIDTH="18%" STYLE="font:8pt Verdana,Arial,Helvetica;">0.000000</TD>
+	</TR>
+	<TR>
+		<TD BGCOLOR="#FFFFFF" WIDTH="25%" STYLE="font:8pt Verdana,Arial,Helvetica;">ReflectionMapLOD</TD>
+		<TD BGCOLOR="#FFFFFF" WIDTH="40%" STYLE="font:8pt Verdana,Arial,Helvetica;">Indicates at which this reflection map LOD. For low, it will always be visible, for medium, it will only be visible in medium or higher and so on. Never disables this map.</TD>
+		<TD BGCOLOR="#FFFFFF" WIDTH="17%" STYLE="font:8pt Verdana,Arial,Helvetica;">String (StaticList)</TD>
+		<TD BGCOLOR="#FFFFFF" WIDTH="18%" STYLE="font:8pt Verdana,Arial,Helvetica;">Low</TD>
+	</TR>
+	<TR>
+		<TD BGCOLOR="#FFFFFF" WIDTH="25%" STYLE="font:8pt Verdana,Arial,Helvetica;">ReflectionMapRTGroup</TD>
+		<TD BGCOLOR="#FFFFFF" WIDTH="40%" STYLE="font:8pt Verdana,Arial,Helvetica;">The render target group that the reflection map should use. Note that this should not be the same as the refraction map, and is not needed if the reflection is disabled</TD>
+		<TD BGCOLOR="#FFFFFF" WIDTH="17%" STYLE="font:8pt Verdana,Arial,Helvetica;">String</TD>
+		<TD BGCOLOR="#FFFFFF" WIDTH="18%" STYLE="font:8pt Verdana,Arial,Helvetica;"></TD>
+	</TR>
+	<TR>
+		<TD BGCOLOR="#FFFFFF" WIDTH="25%" STYLE="font:8pt Verdana,Arial,Helvetica;">RefractionMap</TD>
+		<TD BGCOLOR="#FFFFFF" WIDTH="40%" STYLE="font:8pt Verdana,Arial,Helvetica;">Create a refraction map render target, bound to the tRefractionMap parameter of the material</TD>
+		<TD BGCOLOR="#FFFFFF" WIDTH="17%" STYLE="font:8pt Verdana,Arial,Helvetica;">Boolean</TD>
+		<TD BGCOLOR="#FFFFFF" WIDTH="18%" STYLE="font:8pt Verdana,Arial,Helvetica;">0.000000</TD>
+	</TR>
+	<TR>
+		<TD BGCOLOR="#FFFFFF" WIDTH="25%" STYLE="font:8pt Verdana,Arial,Helvetica;">RefractionMapLOD</TD>
+		<TD BGCOLOR="#FFFFFF" WIDTH="40%" STYLE="font:8pt Verdana,Arial,Helvetica;">Indicates at which this refraction map LOD. For low, it will always be visible, for medium, it will only be visible in medium or higher and so on. Never disables this map.</TD>
+		<TD BGCOLOR="#FFFFFF" WIDTH="17%" STYLE="font:8pt Verdana,Arial,Helvetica;">String (StaticList)</TD>
+		<TD BGCOLOR="#FFFFFF" WIDTH="18%" STYLE="font:8pt Verdana,Arial,Helvetica;">Low</TD>
+	</TR>
+	<TR>
+		<TD BGCOLOR="#FFFFFF" WIDTH="25%" STYLE="font:8pt Verdana,Arial,Helvetica;">RefractionMapRTGroup</TD>
+		<TD BGCOLOR="#FFFFFF" WIDTH="40%" STYLE="font:8pt Verdana,Arial,Helvetica;">The render target group that the refraction map should use. Note that this should not be the same as the reflection map, and is not needed if the refraction is disabled</TD>
+		<TD BGCOLOR="#FFFFFF" WIDTH="17%" STYLE="font:8pt Verdana,Arial,Helvetica;">String</TD>
+		<TD BGCOLOR="#FFFFFF" WIDTH="18%" STYLE="font:8pt Verdana,Arial,Helvetica;"></TD>
+	</TR>
+	<TR>
+		<TD BGCOLOR="#FFFFFF" WIDTH="25%" STYLE="font:8pt Verdana,Arial,Helvetica;">EnableCollisions</TD>
+		<TD BGCOLOR="#FFFFFF" WIDTH="40%" STYLE="font:8pt Verdana,Arial,Helvetica;">Enables collisions with physics objects other than models</TD>
+		<TD BGCOLOR="#FFFFFF" WIDTH="17%" STYLE="font:8pt Verdana,Arial,Helvetica;">Boolean</TD>
+		<TD BGCOLOR="#FFFFFF" WIDTH="18%" STYLE="font:8pt Verdana,Arial,Helvetica;">1.000000</TD>
+	</TR>
+	<TR>
+		<TD BGCOLOR="#FFFFFF" WIDTH="25%" STYLE="font:8pt Verdana,Arial,Helvetica;">CollisionProperty</TD>
+		<TD BGCOLOR="#FFFFFF" WIDTH="40%" STYLE="font:8pt Verdana,Arial,Helvetica;">This allows the selection of an overriding CollisionProperty.</TD>
+		<TD BGCOLOR="#FFFFFF" WIDTH="17%" STYLE="font:8pt Verdana,Arial,Helvetica;">String (StaticList)</TD>
+		<TD BGCOLOR="#FFFFFF" WIDTH="18%" STYLE="font:8pt Verdana,Arial,Helvetica;"><none></TD>
+	</TR>
+
+	</TABLE>
+	</TD>
+	</TR>
+	</TABLE>
+
+
+	</BODY>
+</HTML>

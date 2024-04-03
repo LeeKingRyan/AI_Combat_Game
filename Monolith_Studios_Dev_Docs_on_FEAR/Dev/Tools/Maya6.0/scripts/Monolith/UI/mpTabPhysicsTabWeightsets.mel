@@ -1,0 +1,510 @@
+//--------------------------------------------------------------------------------------------
+/** @file   Monolith/UI/mpTabPhysicsTabWeightsets.mel
+ *  @date   10/15/2004
+ *
+ * (c) 1997-2004 Monolith Productions, Inc.  All Rights Reserved
+ */
+//--------------------------------------------------------------------------------------------
+
+source "monolith/mpModelUtility.mel";
+source "monolith/mpModelImport.mel";
+source "monolith/mpModelExport.mel";
+source "monolith/UI/mpTabPhysics.mel";
+
+global string $mpUITabPhysicsTabWeightsetsName = "Weightsets";
+
+//--------------------------------------------------------------------------------------------
+/** @author Jeff Cotton
+ *  @date   10/15/2004
+ *  @param  parentTabLayout - 
+ *  @brief  
+ */
+global proc mpUITabPhysicsTabWeightsetsImportDoubleClickCommand( string $parentUI, string $getSelectedFileCallback )
+{
+	string $basePath    = $parentUI + "|Import";
+	string $controlPath = $basePath + "|List";
+	
+	string $selectedItems[] = `textScrollList -query -selectItem $controlPath`; 
+	
+	string $inputResult = mpConfirmDialog( "noyes",
+	                                       "Warning",
+	                                       "skipping physics weightset import",
+	                                       "You may lose changes to physics weights. Continue?",
+	                                       false );
+	
+	if ( "Yes" == $inputResult )
+	{
+		if ( size( $selectedItems ) && "" != $selectedItems[0] )
+		{
+			string $selectedFilename;
+			int    $selectedFileID = -1;
+			
+			if ( "" != $getSelectedFileCallback )
+			{
+				$selectedFilename = eval( $getSelectedFileCallback );
+			}
+			else
+			{
+				warning( "Physics Weightset UI will not function correctly without a selected file Callback" );
+			}
+			
+			if ( "" != $selectedFilename ) 
+			{
+				catchQuiet( $selectedFileID = `mpModelOpen -query -id $selectedFilename` );
+			}
+			
+			if ( -1 != $selectedFileID )
+			{
+				int    $bFromSelection = ( ( 0 == size( `ls -selection` ) ) ? false : true );
+				string $rootJoint = mpGetRootJoint( false /*$bFromSelection*/, true );
+				string $joints[];
+				
+				if ( "" != $rootJoint )
+				{
+					$joints = mpGetJoints( $rootJoint, true );
+					$joints = stringArrayCatenate( { $rootJoint }, $joints );
+					
+					if ( catchQuiet( `mpModelImportPhysicsWeightSet -silent -id $selectedFileID -weightset $selectedItems[0] $joints` ) )
+					{
+						mpConfirmDialog( "ok",
+						                 "Warning",
+						                 ( "Failed to Import PhysicsWeightSet" + $selectedItems[0] ),
+						                 ( "Failed to Import PhysicsWeightSet" + $selectedItems[0] ),
+						                 false );
+					}
+				}
+			}
+		}
+	}
+}
+
+//--------------------------------------------------------------------------------------------
+/** @author Jeff Cotton
+ *  @date   09/16/2004
+ *  @brief  
+ */
+global proc mpUITabPhysicsTabWeightsetsImportDeleteCommand( string $parentUI, string $getSelectedFileCallback )
+{
+	string $basePath    = $parentUI + "|Import";
+	string $controlPath = $basePath + "|List";
+	
+	string $selectedItems[] = `textScrollList -query -selectItem $controlPath`; 
+	
+	if ( size( $selectedItems ) && "" != $selectedItems[0] )
+	{
+		string $selectedFilename;
+		int    $selectedFileID = -1;
+		
+		if ( "" != $getSelectedFileCallback )
+		{
+			$selectedFilename = eval( $getSelectedFileCallback );
+		}
+		else
+		{
+			warning( "Physics Weightset UI will not function correctly without a selected file Callback" );
+		}
+		
+		if ( "" != $selectedFilename ) 
+		{
+			catchQuiet( $selectedFileID = `mpModelOpen -query -id $selectedFilename` );
+		}
+		
+		//~ if ( -1 != $selectedFileID )
+		//~ {
+			//~ mpModelExportPhysicsWeightSet -silent -id $selectedFileID -remove $selectedItems[0];
+		//~ }
+	}
+}
+
+//--------------------------------------------------------------------------------------------
+/** @author Jeff Cotton
+ *  @date   10/15/2004
+ *  @param  parentTabLayout - 
+ *  @brief  
+ */
+global proc mpUITabPhysicsTabWeightsetsImportUpdate( string $parentUI, string $getSelectedFileCallback )
+{
+	string $basePath = $parentUI + "|Import";
+	
+	// if we haven't created the UI yet then create it.
+	if ( !`layout -exists $basePath` )
+	{
+		$oldParentUI = `setParent -query`;
+		
+		setParent $parentUI;
+		{
+			mpUITabPhysicsTabWeightsetsImportCreate( $getSelectedFileCallback  );
+		}
+		setParent $oldParentUI;
+	}
+	
+	string $listPath = $basePath + "|List";
+	string $selectedFilename;
+	int    $selectedFileID = -1;
+	
+	if ( "" != $getSelectedFileCallback )
+	{
+		$selectedFilename = eval( $getSelectedFileCallback );
+	}
+	else
+	{
+		warning( "Physics Weightset UI will not function correctly without a selected file Callback" );
+	}
+	
+	if ( "" != $selectedFilename ) 
+	{
+		catchQuiet( $selectedFileID = `mpModelOpen -query -id $selectedFilename` );
+	}
+	
+	int $bEnable = ( -1 == $selectedFileID ? false : true );
+	
+	control -edit -enable $bEnable $listPath;
+	
+	if ( $bEnable )
+	{
+		string $weightsetNames[];
+		catchQuiet( $weightsetNames = `mpModelImportPhysicsWeightSet -silent -id $selectedFileID -query` );
+		
+		string $selectedItems[] = `textScrollList -query -selectItem $listPath`; 
+		
+		// first empty out the list
+		textScrollList -edit -removeAll $listPath; 
+		
+		if ( 0 != size( $weightsetNames ) )
+		{
+			for ( $name in $weightsetNames )
+			{
+				textScrollList -edit -append $name $listPath;
+			}
+			
+			for( $selectedItem in $selectedItems )
+			{
+				// immediatley select the previously selected joints
+				textScrollList -edit -selectItem $selectedItem $listPath;
+			}
+		}
+	}
+}
+
+//--------------------------------------------------------------------------------------------
+/** @author Jeff Cotton
+ *  @date   10/15/2004
+ *  @param  parentTabLayout - 
+ *  @brief  
+ */
+proc mpUITabPhysicsTabWeightsetsImportDelete( string $parentUI )
+{
+	if( `layout -exists ( $parentUI + "|Properties" )` )
+	{
+		deleteUI -layout ( $parentUI + "|Properties" );
+	}
+}
+
+//--------------------------------------------------------------------------------------------
+/** @author Jeff Cotton
+ *  @date   10/15/2004
+ *  @return full ELF path to the new layout of the Physics tab
+ *  @brief  
+ */
+global proc string mpUITabPhysicsTabWeightsetsImportCreate( string $getSelectedFileCallback )
+{
+	string $parentUI = `setParent -query`;
+	
+	mpUITabPhysicsTabWeightsetsImportDelete( $parentUI );
+	
+	string $layout = `formLayout -numberOfDivisions 100 Import`;
+	{
+		string $doubleClickCommand = "mpUITabPhysicsTabWeightsetsImportDoubleClickCommand( \"" + $parentUI + "\", \"" + encodeString( $getSelectedFileCallback ) + "\" );";
+		string $deleteCommand      = "mpUITabPhysicsTabWeightsetsImportDeleteCommand( \"" + $parentUI + "\", \"" + encodeString( $getSelectedFileCallback ) + "\" );";
+		string $importList = `textScrollList -allowMultiSelection false
+		                                     -enable              true
+		                                     -doubleClickCommand  $doubleClickCommand 
+		                                     -deleteKeyCommand    $deleteCommand 
+		                                     List`;
+		
+		formLayout -edit -attachForm $importList  "top"    0
+		                 -attachForm $importList  "left"   0
+		                 -attachForm $importList  "bottom" 0
+		                 -attachForm $importList  "right"  0
+		                 
+		                 $layout;
+	}
+	setParent ..;
+	
+	mpUITabPhysicsTabWeightsetsImportUpdate( $parentUI, $getSelectedFileCallback );
+	
+	return $layout;
+}
+
+//--------------------------------------------------------------------------------------------
+/** @author Jeff Cotton
+ *  @date   10/15/2004
+ *  @param  parentTabLayout - 
+ *  @brief  
+ */
+global proc mpUITabPhysicsTabWeightsetsPropertiesUpdate( string $parentUI, string $getSelectionCallback )
+{
+	string $controlPath = $parentUI + "|Properties";
+	
+	// if we haven't created the UI yet then create it.
+	if ( !`layout -exists $controlPath` )
+	{
+		$oldParentUI = `setParent -query`;
+		
+		setParent $parentUI;
+		{
+			mpUITabPhysicsTabWeightsetsPropertiesCreate( $getSelectionCallback );
+		}
+		setParent $oldParentUI;
+	}
+	
+	string $basePath         = $controlPath;
+	string $velocityGain     = $basePath + "|VelocityGain";
+	string $hierarchalGain   = $basePath + "|HierarchalGain";
+	string $physicalCheckbox = $basePath + "|Physical";
+	string $selection[];
+	
+	if ( "" != $getSelectionCallback )
+	{
+		$selection = eval( $getSelectionCallback );
+	}
+	else
+	{
+		warning( "Weightset UI will not function correctly without a selection Callback" );
+	}
+	
+	int $bEnable = ( 0 == size( $selection ) ? false : true );
+	
+	control -edit -enable $bEnable $velocityGain;
+	control -edit -enable $bEnable $hierarchalGain;
+	control -edit -enable $bEnable $physicalCheckbox;
+	
+	if ( $bEnable )
+	{
+		string $velocityGainAttrs[];
+		string $hierarchalGainAttrs[];
+		string $physicalAttrs[];
+		
+		for ( $joint in $selection ) 
+		{
+			$velocityGainAttrs[size( $velocityGainAttrs )]     = ( $joint + ".mpPhysicsVelocityGain" );
+			$hierarchalGainAttrs[size( $hierarchalGainAttrs )] = ( $joint + ".mpPhysicsHierarchalGain" );
+			$physicalAttrs[size( $physicalAttrs )]             = ( $joint + ".mpPhysicsPhysical" );
+		}
+		
+		connectControl $velocityGain     $velocityGainAttrs;
+		connectControl $hierarchalGain   $hierarchalGainAttrs;
+		connectControl $physicalCheckbox $physicalAttrs;
+	}
+}
+
+//--------------------------------------------------------------------------------------------
+/** @author Jeff Cotton
+ *  @date   10/15/2004
+ *  @param  parentTabLayout - 
+ *  @brief  
+ */
+proc mpUITabPhysicsTabWeightsetsPropertiesDelete( string $parentUI )
+{
+	if( `layout -exists ( $parentUI + "|Properties" )` )
+	{
+		deleteUI -layout ( $parentUI + "|Properties" );
+	}
+}
+
+//--------------------------------------------------------------------------------------------
+/** @author Jeff Cotton
+ *  @date   10/15/2004
+ *  @return full ELF path to the new layout of the Physics tab
+ *  @brief  
+ */
+global proc string mpUITabPhysicsTabWeightsetsPropertiesCreate( string $getSelectionCallback )
+{
+	string $parentUI = `setParent -query`;
+	
+	mpUITabPhysicsTabWeightsetsPropertiesDelete( $parentUI );
+	
+	string $layout = `formLayout -numberOfDivisions 100 Properties`;
+	{
+		string $velocityGain = `floatSliderGrp -label            "Velocity Gain"
+		                                       -enable           false
+		                                       -field            true
+		                                       -columnAlign      1 "left"
+		                                       -columnWidth      1 100
+		                                       -columnWidth      2 60
+		                                       -adjustableColumn 3
+		                                       -min              0
+		                                       -max              1
+		                                       -fieldMinValue    0
+		                                       -fieldMaxValue    1
+		                                       -step             0.0001
+		                                       VelocityGain`;
+		
+		string $hierarchalGain = `floatSliderGrp -label            "Hierarchal Gain"
+		                                         -enable           false
+		                                         -field            true
+		                                         -columnAlign      1 "left"
+		                                         -columnWidth      1 100
+		                                         -columnWidth      2 60
+		                                         -adjustableColumn 3
+		                                         -min              0
+		                                         -max              1
+		                                         -fieldMinValue    0
+		                                         -fieldMaxValue    1
+		                                         -step             0.0001
+		                                         HierarchalGain`;
+		
+		string $physicalCheckBox = `checkBox -label "Physical" Physical`;
+		
+		formLayout -edit -attachForm     $physicalCheckBox  "top"    0
+		                 -attachNone     $physicalCheckBox  "left"   
+		                 -attachNone     $physicalCheckBox  "bottom"
+		                 -attachForm     $physicalCheckBox  "right"  0
+		                 
+		                 -attachForm     $velocityGain      "top"    0
+		                 -attachForm     $velocityGain      "left"   0
+		                 -attachNone     $velocityGain      "bottom"
+		                 -attachControl  $velocityGain      "right"  5 $physicalCheckBox
+		                 
+		                 -attachControl  $hierarchalGain    "top"    5 $velocityGain
+		                 -attachForm     $hierarchalGain    "left"   0
+		                 -attachForm     $hierarchalGain    "bottom" 0
+		                 -attachControl  $hierarchalGain    "right"  5 $physicalCheckBox
+		                 
+		                 $layout;
+	}
+	setParent ..;
+	
+	mpUITabPhysicsTabWeightsetsPropertiesUpdate( $parentUI, $getSelectionCallback );
+	
+	return $layout;
+}
+
+//--------------------------------------------------------------------------------------------
+/** @author Jeff Cotton
+ *  @date   10/15/2004
+ *  @param  $parentUI - 
+ *  @brief  
+ */
+global proc mpUITabPhysicsTabWeightsetsSelectionChangedCallBack( string $parentUI )
+{
+	global string $mpUITabPhysicsTabWeightsetsName;
+	string $basePath             = ( $parentUI + "|" + $mpUITabPhysicsTabWeightsetsName );
+	string $listUI               = $basePath + "|List";
+	string $propertiesUI         = $basePath + "|Properties";
+	string $getSelectionCallback = "mpUITabPhysicsJointListGetSelection( \"" + $listUI + "\" )";
+	
+	mpUITabPhysicsTabWeightsetsPropertiesUpdate( $propertiesUI, $getSelectionCallback );
+}
+
+//--------------------------------------------------------------------------------------------
+/** @author Jeff Cotton
+ *  @date   10/15/2004
+ *  @param  parentTabLayout - 
+ *  @brief  
+ */
+global proc mpUITabPhysicsTabWeightsetsUpdate( string $parentUI, string $getSelectedFileCallback )
+{
+	global string $mpUITabPhysicsTabWeightsetsName;
+	string $basePath             = ( $parentUI + "|" + $mpUITabPhysicsTabWeightsetsName );
+	string $importUI             = $basePath + "|Import";
+	string $listUI               = $basePath + "|List";
+	string $propertiesUI         = $basePath + "|Properties";
+	string $getSelectionCallback = "mpUITabPhysicsJointListGetSelection( \"" + $listUI + "\" )";
+	
+	mpUITabPhysicsJointListUpdate( $listUI );
+	mpUITabPhysicsTabWeightsetsPropertiesUpdate( $propertiesUI, $getSelectionCallback );
+	mpUITabPhysicsTabWeightsetsImportUpdate( $importUI, $getSelectedFileCallback );
+}
+
+//--------------------------------------------------------------------------------------------
+/** @author Jeff Cotton
+ *  @date   10/15/2004
+ *  @param  parentTabLayout - 
+ *  @brief  
+ */
+proc mpUITabPhysicsTabWeightsetsDelete( string $parentTabLayout )
+{
+	global string $mpUITabPhysicsTabWeightsetsName;
+	if( `layout -exists ( $parentTabLayout + "|" + $mpUITabPhysicsTabWeightsetsName )` )
+	{
+		deleteUI -layout ( $parentTabLayout + "|" + $mpUITabPhysicsTabWeightsetsName );
+	}
+}
+
+//--------------------------------------------------------------------------------------------
+/** @author Jeff Cotton
+ *  @date   10/15/2004
+ *  @return full ELF path to the new layout of the Physics tab
+ *  @brief  
+ */
+global proc string mpUITabPhysicsTabWeightsetsCreate( string $getSelectedFileCallback )
+{
+	global string $mpUITabPhysicsTabWeightsetsName;
+	
+	// might bail out of Mel script 
+	mpEnsureMonolithPluginLoaded( false );
+	
+	string $parentUI = `setParent -query`;
+	
+	mpUITabPhysicsTabWeightsetsDelete( $parentUI );
+	
+	string $layout = `formLayout -numberOfDivisions 100 $mpUITabPhysicsTabWeightsetsName`;
+	{
+		mpUIEmbedUpdateCommand( "mpUITabPhysicsTabWeightsetsUpdate( \"" + $parentUI + "\", \"" + encodeString( $getSelectedFileCallback ) + "\" )" );
+		
+		string $importWeightsetFrame = `frameLayout -label         "Import"
+		                                            -marginHeight  2
+		                                            -marginWidth   2
+		                                            -collapsable   false
+		                                            Import`;
+		{
+			mpUITabPhysicsTabWeightsetsImportCreate( $getSelectedFileCallback );
+		}
+		setParent ..;
+		
+		string $jointListFrame = `frameLayout -label        "Joints"
+		                                      -marginHeight 5
+		                                      -marginWidth  5
+		                                      -collapsable  false
+		                                       List`;
+		{
+			mpUITabPhysicsJointListCreate( "mpUITabPhysicsTabWeightsetsSelectionChangedCallBack( \"" + $parentUI + "\" );", "" );
+		}
+		setParent ..;
+		
+		string $getSelectionCallback = "mpUITabPhysicsJointListGetSelection( \"" + $jointListFrame + "\" )";
+		
+		string $propertiesFrame = `frameLayout -label         "Properties"
+		                                       -marginHeight  5
+		                                       -marginWidth   5
+		                                       -collapsable   false
+		                                       Properties`;
+		{
+			mpUITabPhysicsTabWeightsetsPropertiesCreate( $getSelectionCallback );
+		}
+		setParent ..;
+		
+		formLayout -edit -attachNone     $propertiesFrame      "top"    
+		                 -attachForm     $propertiesFrame      "left"   0
+		                 -attachForm     $propertiesFrame      "bottom" 0
+		                 -attachForm     $propertiesFrame      "right"  0
+		                 
+		                 -attachForm     $importWeightsetFrame "top"    0
+		                 -attachForm     $importWeightsetFrame "left"   0
+		                 -attachControl  $importWeightsetFrame "bottom" 5 $propertiesFrame
+		                 -attachPosition $importWeightsetFrame "right"  2 50
+		                 
+		                 -attachForm     $jointListFrame       "top"    0
+		                 -attachPosition $jointListFrame       "left"   2 50
+		                 -attachControl  $jointListFrame       "bottom" 5 $propertiesFrame
+		                 -attachForm     $jointListFrame       "right"  0
+		                 
+		                 $layout;
+	}
+	setParent ..;
+	
+	mpUITabPhysicsTabWeightsetsUpdate( $parentUI, $getSelectedFileCallback );
+	
+	return $layout;
+}

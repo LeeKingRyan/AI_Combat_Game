@@ -1,0 +1,645 @@
+//--------------------------------------------------------------------------------------------
+/** @file   Monolith/UI/mpTabAnimation.mel
+ *  @date   08/20/2004
+ *
+ * (c) 1997-2004 Monolith Productions, Inc.  All Rights Reserved
+ */
+//--------------------------------------------------------------------------------------------
+
+source "monolith/mpModelImport.mel";
+source "monolith/mpModelExport.mel";
+source "monolith/mpModelUtility.mel";
+source "monolith/UI/mpTabbedPanel.mel";
+source "monolith/UI/mpTabMain.mel";
+
+global string $mpUITabAnimationName = "TabAnimation";
+
+//--------------------------------------------------------------------------------------------
+/** @author Jeff Cotton
+ *  @date   09/23/2004
+ *  @brief  
+ */
+global proc mpUITabAnimationChildModelsListDeleteCommand( string $parentTabLayout,
+                                                          string $parentUI )
+{
+}
+
+//--------------------------------------------------------------------------------------------
+/** @author Jeff Cotton
+ *  @date   09/23/2004
+ *  @brief  
+ */
+global proc mpUITabAnimationChildModelsListUpdate( string $parentTabLayout,
+                                                   string $parentUI )
+{
+	string $controlPath = $parentUI + "|ChildModelsList";
+	string $selectedItems[] = `textScrollList -query -selectItem $controlPath`; 
+	string $selectedFilename;
+	int    $selectedFileID = -1;
+	string $childModels[];
+	string $callback;
+	
+	$selectedFilename = mpUITabMainFileListGetSelectedFilename( $parentTabLayout );
+	if ( "" != $selectedFilename ) 
+	{
+		catchQuiet( $selectedFileID = `mpModelOpen -query -id $selectedFilename` );
+		$childModels = `mpModelChildModels -id $selectedFileID -query`;
+	}
+	
+	// first empty out the list
+	textScrollList -edit -removeAll $controlPath; 
+	
+	if ( 0 != size( $childModels ) )
+	{
+		for ( $name in $childModels )
+		{
+			textScrollList -edit -append $name $controlPath;
+		}
+		
+		for( $selectedItem in $selectedItems )
+		{
+			// immediatley select the previously selected childmodel
+			textScrollList -edit -selectItem $selectedItem $controlPath;
+		}
+	}
+}
+
+//--------------------------------------------------------------------------------------------
+/** @author Jeff Cotton
+ *  @date   09/24/2004
+ *  @brief  
+ */
+global proc mpUITabAnimationChildModelsFrameDelete( string $parentTabLayout )
+{
+}
+
+//--------------------------------------------------------------------------------------------
+/** @author Jeff Cotton
+ *  @date   09/24/2004
+ *  @brief  
+ */
+global proc mpUITabAnimationChildModelsFrameCreate( string $parentTabLayout )
+{
+}
+
+//--------------------------------------------------------------------------------------------
+/** @author Jeff Cotton
+ *  @date   09/16/2004
+ *  @brief  
+ */
+global proc mpUITabAnimationExportButtonUpdate( string $parentUI, int $fileID  )
+{
+	string $controlPath = $parentUI + "|ExportButton";
+	
+	// if a valid file is not selected then disable the export button
+	if ( -1 == $fileID )
+	{
+		button -edit -enable false $controlPath;
+	}
+	// otherwise enable it
+	else
+	{
+		string $weightsetName = `textField -query -text ( $parentUI + "|WeightsetName" )`;
+		button -edit -enable ( "" != $weightsetName ) $controlPath;
+	}
+}
+
+//--------------------------------------------------------------------------------------------
+/** @author Jeff Cotton
+ *  @date   09/16/2004
+ *  @brief  
+ */
+proc mpUITabAnimationJointListUpdate( string $parentUI, string $joints[] )
+{
+	string $controlPath = $parentUI + "|JointList";
+	
+	string $selectedItems[] = `textScrollList -query -selectItem $controlPath`; 
+	
+	// first empty out the list
+	textScrollList -edit -removeAll $controlPath; 
+	
+	if ( 0 != size( $joints ) )
+	{
+		for ( $joint in $joints )
+		{
+			textScrollList -edit -append $joint $controlPath;
+		}
+		
+		for( $selectedItem in $selectedItems )
+		{
+			// immediatley select the previously selected joints
+			textScrollList -edit -selectItem $selectedItem $controlPath;
+		}
+	}
+}
+
+//--------------------------------------------------------------------------------------------
+/** @author Jeff Cotton
+ *  @date   09/16/2004
+ */
+proc mpUITabAnimationWeightsetListUpdate( string $parentUI, string $names[] )
+{
+	string $controlPath = $parentUI + "|WeightsetList";
+	
+	string $selectedItems[] = `textScrollList -query -selectItem $controlPath`; 
+	
+	// first empty out the list
+	textScrollList -edit -removeAll $controlPath; 
+	
+	if ( 0 != size( $names ) )
+	{
+		for ( $name in $names )
+		{
+			textScrollList -edit -append $name $controlPath;
+		}
+		
+		for( $selectedItem in $selectedItems )
+		{
+			// immediatley select the previously selected joints
+			textScrollList -edit -selectItem $selectedItem $controlPath;
+		}
+	}
+}
+
+//--------------------------------------------------------------------------------------------
+/** @author Jeff Cotton
+ *  @date   09/16/2004
+ *  @brief  
+ */
+global proc mpUITabAnimationExportButtonCommand( string $parentTabLayout, string $parentUI )
+{
+	string $controlPath      = $parentUI + "|WeightsetName";
+	int    $bDoExport        = true;
+	string $newWeightsetName = `textField -query -text $controlPath`;
+	
+	string $selectedFilename;
+	int    $selectedFileID = -1;
+	
+	$selectedFilename = mpUITabMainFileListGetSelectedFilename( $parentTabLayout );
+	if ( "" != $selectedFilename ) 
+	{
+		catchQuiet( $selectedFileID = `mpModelOpen -query -id $selectedFilename` );
+	}
+	
+	if ( -1 != $selectedFileID )
+	{
+		string $weightsetNames[];
+		catchQuiet( $weightsetNames = `mpModelImportAnimationWeightSet -silent -id $selectedFileID -query` );
+		
+		for ( $weightsetName in $weightsetNames )
+		{
+			if ( $weightsetName == $newWeightsetName )
+			{
+				string $inputResult = mpConfirmDialog( "noyes",
+				                                       "Warning",
+				                                       "skipping animation weightset export",
+				                                       "Overwrite animation weight set?",
+				                                       false );
+				
+				$bDoExport = ( "Yes" == $inputResult ? true : false );
+			}
+		}
+		
+		if ( $bDoExport )
+		{
+			string $rootJoint = mpGetRootJoint( false /*$bFromSelection*/, false );
+			
+			if ( "" != $rootJoint )
+			{
+				if ( catchQuiet( `mpModelExportAnimationWeightSet -silent -id $selectedFileID -weightset $newWeightsetName $rootJoint` ) )
+				{
+					mpConfirmDialog( "ok",
+					                 "Warning",
+					                 ( "Failed to Export AnimationWeightSet " + $newWeightsetName ),
+					                 ( "Failed to Export AnimationWeightSet " + $newWeightsetName ), 
+					                 false );
+				}
+				
+				//~ mpModelFlush -id $selectedFileID;
+				
+				catchQuiet( $weightsetNames = `mpModelImportAnimationWeightSet -silent -id $selectedFileID -query` );
+				mpUITabAnimationWeightsetListUpdate( $parentUI, $weightsetNames );
+			}
+		}
+	}
+}
+
+//--------------------------------------------------------------------------------------------
+/** @author Jeff Cotton
+ *  @date   09/16/2004
+ *  @brief  
+ */
+global proc mpUITabAnimationWeightsetListDoubleClickCommand( string $parentTabLayout, string $parentUI )
+{
+	string $controlPath = $parentUI + "|WeightsetList";
+	
+	string $selectedItems[] = `textScrollList -query -selectItem $controlPath`; 
+	
+	string $inputResult = mpConfirmDialog( "noyes",
+	                                       "Warning",
+	                                       "skipping animation weightset import",
+	                                       "You may lose changes to animation weights. Continue?",
+	                                       false );
+	
+	if ( "Yes" == $inputResult )
+	{
+		if ( size( $selectedItems ) && "" != $selectedItems[0] )
+		{
+			string $selectedFilename;
+			int    $selectedFileID = -1;
+			
+			$selectedFilename = mpUITabMainFileListGetSelectedFilename( $parentTabLayout );
+			if ( "" != $selectedFilename ) 
+			{
+				catchQuiet( $selectedFileID = `mpModelOpen -query -id $selectedFilename` );
+			}
+			
+			if ( -1 != $selectedFileID )
+			{
+				int    $bFromSelection = ( ( 0 == size( `ls -selection` ) ) ? false : true );
+				string $rootJoint = mpGetRootJoint( false /*$bFromSelection*/, true );
+				string $joints[];
+				
+				if ( "" != $rootJoint )
+				{
+					$joints = mpGetJoints( $rootJoint, true );
+					$joints = stringArrayCatenate( { $rootJoint }, $joints );
+					
+					if ( catchQuiet( `mpModelImportAnimationWeightSet -silent -id $selectedFileID -weightset $selectedItems[0] $joints` ) )
+					{
+						mpConfirmDialog( "ok",
+						                 "Warning",
+						                 ( "Failed to Import AnimationWeightSet " + $selectedItems[0] ),
+						                 ( "Failed to Import AnimationWeightSet " + $selectedItems[0] ),
+						                 false );
+					}
+					
+					textField -edit -text $selectedItems[0] ( $parentUI + "|WeightsetName" );
+					mpUITabAnimationExportButtonUpdate( $parentUI, $selectedFileID );
+				}
+			}
+		}
+	}
+}
+
+//--------------------------------------------------------------------------------------------
+/** @author Jeff Cotton
+ *  @date   09/16/2004
+ *  @brief  
+ */
+global proc mpUITabAnimationWeightsetListDeleteCommand( string $parentTabLayout, string $parentUI )
+{
+	string $controlPath = $parentUI + "|WeightsetList";
+	
+	string $selectedItems[] = `textScrollList -query -selectItem $controlPath`; 
+	
+	if ( size( $selectedItems ) && "" != $selectedItems[0] )
+	{
+		string $selectedFilename;
+		int    $selectedFileID = -1;
+		
+		$selectedFilename = mpUITabMainFileListGetSelectedFilename( $parentTabLayout );
+		if ( "" != $selectedFilename ) 
+		{
+			catchQuiet( $selectedFileID = `mpModelOpen -query -id $selectedFilename` );
+		}
+		
+		if ( -1 != $selectedFileID )
+		{
+			mpModelExportAnimationWeightSet -silent -id $selectedFileID -remove $selectedItems[0];
+			//~ mpModelFlush -id $selectedFileID;
+		}
+	}
+}
+
+//--------------------------------------------------------------------------------------------
+/** @author Jeff Cotton
+ *  @date   09/16/2004
+ *  @brief  
+ */
+global proc mpUITabAnimationJointListSelectionChangedCommand( string $parentTabLayout, string $parentUI )
+{
+	string $controlPath = $parentUI + "|JointList";
+	
+	string $selectedItems[] = `textScrollList -query -selectItem $controlPath`; 
+	string $attrNames[];
+	
+	if ( size( $selectedItems ) )
+	{
+		for( $selectedItem in $selectedItems )
+		{
+			float $nextWeight;
+			
+			if ( `objExists ( $selectedItem + ".mpAnimationWeight" )` )
+			{
+				$attrNames[size($attrNames)] = ( $selectedItem + ".mpAnimationWeight" );
+			}
+		}
+		
+		connectControl ( $parentUI + "|CurrentWeight" ) $attrNames;
+	}
+}
+
+//--------------------------------------------------------------------------------------------
+/** @author Jeff Cotton
+ *  @date   09/16/2004
+ *  @brief  
+ */
+global proc mpUITabAnimationWeightsetNameChangedCommand( string $parentTabLayout, string $parentUI )
+{
+	string $controlPath = $parentUI + "|WeightsetName";
+	string $selectedFilename;
+	int    $selectedFileID = -1;
+	
+	$selectedFilename = mpUITabMainFileListGetSelectedFilename( $parentTabLayout );
+	if ( "" != $selectedFilename ) 
+	{
+		catchQuiet( $selectedFileID = `mpModelOpen -query -id $selectedFilename` );
+	}
+	
+	// if an valid file is not selected then disable the export button
+	if ( -1 == $selectedFileID )
+	{
+		button -edit -enable false ( $parentUI + "|ExportButton" );
+	}
+	// otherwise enable it
+	else
+	{
+		string $weightsetName = `textField -query -text ( $parentUI + "|WeightsetName" )`;
+		button -edit -enable ( "" != $weightsetName ) ( $parentUI + "|ExportButton" );
+	}
+}
+
+//--------------------------------------------------------------------------------------------
+/** @author Jeff Cotton
+ *  @date   09/16/2004
+ */
+proc mpUITabAnimationWeightsetFrameUpdate( string $parentTabLayout, string $parentUI )
+{
+	string $framePath = ( $parentUI + "|WeightsetFrame|Layout|Layout" );
+	int    $bFromSelection = ( ( 0 == size( `ls -selection` ) ) ? false : true );
+	string $rootJoint      = mpGetRootJoint( false /*$bFromSelection*/, true );
+	string $joints[];
+	
+	if ( "" != $rootJoint )
+	{
+		$joints = `listRelatives -allDescendents -type "joint" $rootJoint`;
+	}
+	
+	// put the root joint on the front of the list.
+	$joints = stringArrayCatenate( { $rootJoint }, $joints );
+	$joints = stringArrayRemoveDuplicates( $joints );
+	
+	string $selectedFilename;
+	int    $selectedFileID = -1;
+	
+	$selectedFilename = mpUITabMainFileListGetSelectedFilename( $parentTabLayout );
+	if ( "" != $selectedFilename ) 
+	{
+		catchQuiet( $selectedFileID = `mpModelOpen -query -id $selectedFilename` );
+	}
+	
+	string $weightsetNames[];
+	
+	if ( -1 != $selectedFileID )
+	{
+		catchQuiet( $weightsetNames = `mpModelImportAnimationWeightSet -id $selectedFileID -query` );
+	}
+	
+	mpUITabAnimationExportButtonUpdate( $framePath, $selectedFileID );
+	mpUITabAnimationJointListUpdate( $framePath, $joints );
+	mpUITabAnimationJointListSelectionChangedCommand( $parentTabLayout, $framePath );
+	mpUITabAnimationWeightsetListUpdate( $framePath, $weightsetNames );
+}
+
+//--------------------------------------------------------------------------------------------
+/** @author Jeff Cotton
+ *  @date   09/16/2004
+ */
+proc string mpUITabAnimationWeightsetFrameCreate( string $parentTabLayout )
+{
+	// if the Monolith plug-in is not loaded then bail
+	mpEnsureMonolithPluginLoaded( false );
+	
+	string $weightsetFrame;
+	
+	string $parentLayout = `setParent -query`;
+	
+	if ( `layout -exists $parentLayout` )
+	{
+		// if the selected file frame already exist then delete it so that it can be updated
+		//  if code changed.
+		if( `layout -exists ( $parentLayout + "|WeightsetFrame" )` )
+		{
+			deleteUI -layout ( $parentLayout + "|WeightsetFrame" );
+		}
+	
+		// just create the frame and a child layout so that the Option Menu group can
+		//  be added on update
+		$weightsetFrame = `frameLayout -label       "WeightSets"
+		                               -width       600
+		                               -collapsable true
+		                               -borderStyle "etchedIn"
+		                               WeightsetFrame`;
+			
+			string $filenameColumnLayout = `rowLayout -numberOfColumns  1
+			                                          -adjustableColumn 1
+			                                          -columnAttach     1 "both" 0
+			                                          -rowAttach        1 "both" 0
+			                                          Layout`;
+			
+				string $formLayout = `formLayout -numberOfDivisions 100
+				                                 Layout`;
+					
+					string $command;
+					
+					string $doubleClickCommand = "mpUITabAnimationWeightsetListDoubleClickCommand( \"" + $parentTabLayout + "\", \"" + $formLayout + "\" )";
+					string $deleteCommand      = "mpUITabAnimationWeightsetListDeleteCommand( \"" + $parentTabLayout + "\", \"" + $formLayout + "\" )";
+					
+					string $weightsetList    = `textScrollList -allowMultiSelection false
+					                                           -width               100
+					                                           -deleteKeyCommand    $deleteCommand
+					                                           -doubleClickCommand  $doubleClickCommand
+					                                           WeightsetList`;
+					
+					$command = "mpUITabAnimationWeightsetNameChangedCommand( \"" + $parentTabLayout + "\", \"" + $formLayout + "\" )";
+					
+					string $weightsetName = `textField -editable true
+					                                   -changeCommand $command
+					                                   WeightsetName`;
+					
+					$command = "mpUITabAnimationJointListSelectionChangedCommand( \"" + $parentTabLayout + "\", \"" + $formLayout + "\" )";
+					
+					string $jointList     = `textScrollList -allowMultiSelection true
+					                                        -height              200
+					                                        -selectCommand       $command
+					                                        JointList`;
+					
+					string $currentWeight = `floatSliderGrp -minValue 0
+					                                        -maxValue 100
+					                                        -field    true
+					                                        CurrentWeight`;
+					
+					$command = "mpUITabAnimationExportButtonCommand( \"" + $parentTabLayout + "\", \"" + $formLayout + "\" )";
+					
+					string $exportButton  = `button -label   "Add"
+					                                -align   "left"
+					                                -command $command
+					                                ExportButton`;
+					
+					formLayout -edit 
+					                 -attachNone     $exportButton      "top"    
+					                 -attachNone     $exportButton      "left"   
+					                 -attachForm     $exportButton      "bottom" 5
+					                 -attachPosition $exportButton      "right"  2 50
+					
+					                 -attachNone     $weightsetName     "top"    
+					                 -attachForm     $weightsetName     "left"   5
+					                 -attachForm     $weightsetName     "bottom" 5
+					                 -attachControl  $weightsetName     "right"  5 $exportButton
+					
+					                 -attachForm     $weightsetList     "top"    5
+					                 -attachForm     $weightsetList     "left"   5
+					                 -attachControl  $weightsetList     "bottom" 5 $weightsetName
+					                 -attachPosition $weightsetList     "right"  2 50
+					
+					                 -attachNone     $currentWeight     "top"    
+					                 -attachPosition $currentWeight     "left"   2 50
+					                 -attachForm     $currentWeight     "bottom" 5
+					                 -attachForm     $currentWeight     "right"  5
+					
+					                 -attachForm     $jointList         "top"    5
+					                 -attachPosition $jointList         "left"   2 50
+					                 -attachControl  $jointList         "bottom" 2 $currentWeight
+					                 -attachForm     $jointList         "right"  5
+					
+					                 $formLayout;
+					
+				setParent ..;
+				
+			setParent ..;
+			
+		setParent ..;
+	}
+	
+	return $weightsetFrame;
+}
+
+//--------------------------------------------------------------------------------------------
+/** @author Jeff Cotton
+ *  @date   08/24/2004
+ *  @brief  callback function given to the selected file frame so that when a new file is
+ *           selected the main tab can be updated, and we can enable/disable options in the
+ *           animation tab
+ */
+global proc mpUITabAnimationSelectedFileFrameChangeCallback( string $parentTabLayout, string $filename )
+{
+	int $selectedFileID = ( "[No Selection]" == $filename ? -1 : `mpModelOpen -query -id $filename` );
+
+	mpUITabMainFileListSetSelection( $parentTabLayout, $selectedFileID );
+	mpUITabAnimationUpdate( $parentTabLayout );
+}
+
+//--------------------------------------------------------------------------------------------
+/** @author Jeff Cotton
+ *  @date   09/16/2004
+ *  @brief  Updates the animation tab's UI Elements with the correct values from the main tab
+ */
+global proc mpUITabAnimationUpdate( string $parentTabLayout )
+{
+	global string $mpUITabAnimationName;
+	
+	string $tabPath = ( $parentTabLayout + "|" + $mpUITabAnimationName );
+	
+	if( `layout -exists $tabPath` )
+	{
+		string $selectedFilename;
+		int    $selectedFileID = -1;
+		string $filenames[];
+		string $callback;
+		
+		$selectedFilename = mpUITabMainFileListGetSelectedFilename( $parentTabLayout );
+		if ( "" != $selectedFilename ) 
+		{
+			catchQuiet( $selectedFileID = `mpModelOpen -query -id $selectedFilename` );
+		}
+		$filenames = mpUITabMainFileListGetList( $parentTabLayout );
+		$callback = "mpUITabAnimationSelectedFileFrameChangeCallback \"" + $parentTabLayout + "\"";
+		
+		mpUITabbedPanelSelectedFileFrameUpdate( $tabPath, $filenames, $selectedFilename, $callback );
+		mpUITabAnimationWeightsetFrameUpdate( $parentTabLayout, $tabPath );
+	}
+}
+
+//--------------------------------------------------------------------------------------------
+/** @author Jeff Cotton
+ *  @date   09/15/2004
+ *  @param  parentTabLayout - 
+ *  @brief  Delete the Animation tab
+ */
+proc mpUITabAnimationDelete( string $parentTabLayout )
+{
+	global string $mpUITabAnimationName;
+	
+	if( `layout -exists ( $parentTabLayout + "|" + $mpUITabAnimationName )` )
+	{
+		deleteUI -layout ( $parentTabLayout + "|" + $mpUITabAnimationName );
+	}
+}
+
+//--------------------------------------------------------------------------------------------
+/** @author Jeff Cotton
+ *  @date   09/16/2004
+ *  @brief  Create the Animation tab for the Monolith Tabbed Panel
+ *
+ *   this function requires that a tab layout was previously created and is the current
+ *  layout parent
+ */
+global proc string mpUITabAnimationCreate()
+{
+	global string $mpUITabAnimationName;
+	
+	// might bail out of Mel script 
+	mpEnsureMonolithPluginLoaded( false );
+	
+	string $tabAnimationFormLayout;
+	
+	// confirm that the current parent exists as a tab layout
+	// 	(confirm the parent IS a tabLayout)
+	string $parentTabLayout = `setParent -query`;
+	
+	if ( `tabLayout -exists $parentTabLayout` )
+	{
+		// if the Animation tab already exist then delete it so that it can be updated
+		//  if code changed.
+		mpUITabAnimationDelete( $parentTabLayout );
+		
+		$tabAnimationFormLayout = `formLayout -numberOfDivisions 100 $mpUITabAnimationName`;
+		{
+			mpUIEmbedUpdateCommand( "mpUITabAnimationUpdate( \"" + $parentTabLayout + "\" )" );
+			
+			string $filenameFrame  = mpUITabbedPanelSelectedFileFrameCreate();
+			string $weightsetFrame = mpUITabAnimationWeightsetFrameCreate( $parentTabLayout );
+			
+			formLayout -edit 
+			                 -attachForm     $filenameFrame  "top"    0
+			                 -attachForm     $filenameFrame  "left"   0
+			                 -attachNone     $filenameFrame  "bottom"
+			                 -attachForm     $filenameFrame  "right"  0
+			
+			                 -attachControl  $weightsetFrame "top"    2 $filenameFrame
+			                 -attachForm     $weightsetFrame "left"   0
+			                 -attachForm     $weightsetFrame "bottom" 0
+			                 -attachForm     $weightsetFrame "right"  0
+			
+			                 $tabAnimationFormLayout;
+			
+			setParent ..;
+		}
+		tabLayout -edit -tabLabel $tabAnimationFormLayout "Animation" $parentTabLayout;
+		
+		mpUITabAnimationUpdate( $parentTabLayout );
+	}
+	
+	return $tabAnimationFormLayout;
+}

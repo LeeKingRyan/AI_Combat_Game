@@ -1,0 +1,233 @@
+<HTML>
+	<META HTTP-EQUIV="Content-Type" CONTENT="text/html; charset=utf-8">
+	<META NAME="AUTHOR" CONTENT="Monolith Productions">
+	<HEAD>
+	<TITLE>Camera</TITLE>
+	<STYLE TYPE="text/css">
+	<!--
+		A		{text-decoration:none}
+		A:hover 	{text-decoration:underline}
+	-->
+	</STYLE>
+	</HEAD>
+	<BODY BGCOLOR="#FFFFFF" LEFTMARGIN="6" TOPMARGIN="6" marginheight="6" marginwidth="6" STYLE="margin-top:6;margin-left:6;margin-bottom:6;margin-right:6;font:10pt Verdana,Arial,Helvetica;">
+
+	<TABLE BORDER="0" WIDTH="100%" CELLPADDING="0" CELLSPACING="0">
+	<TR>
+	<TD ALIGN="left" STYLE="font:8pt Verdana,Arial,Helvetica;"><A HREF="objref.toc.htm">Table of Contents</A></TD>
+	<TD ALIGN="right" STYLE="font:8pt Verdana,Arial,Helvetica;"><A HREF="objref.list.htm">Entire List</A></TD>
+	</TR>
+	</TABLE>
+	<BR>
+
+		<B>Camera</B>
+	<HR SIZE="1">
+	This object allows you to setup a cinematic camera.
+	<BR><BR>
+
+	<TABLE BORDER="0" WIDTH="100%" CELLPADDING="1" CELLSPACING="0" BGCOLOR="#808080">
+	<TR><TD>
+	<TABLE BORDER="0" WIDTH="100%" CELLPADDING="4" CELLSPACING="1" COLS="3">
+	<TR>
+		<TD BGCOLOR="#FFFFFF" WIDTH="25%" STYLE="font:10pt Verdana,Arial,Helvetica;"><B>Message</B></TD>
+		<TD BGCOLOR="#FFFFFF" WIDTH="40%" STYLE="font:10pt Verdana,Arial,Helvetica;"><B>Description</B></TD>
+		<TD BGCOLOR="#FFFFFF" WIDTH="35%" STYLE="font:10pt Verdana,Arial,Helvetica;"><B>Example</B></TD>
+	</TR>
+			<TR>
+		<TD BGCOLOR="#FFFFFF" WIDTH="25%" STYLE="font:8pt Verdana,Arial,Helvetica;">VISIBLE &lt;bool&gt;</TD>
+		<TD BGCOLOR="#FFFFFF" WIDTH="40%" STYLE="font:8pt Verdana,Arial,Helvetica;">Toggles whether the object is visible.</TD>
+		<TD BGCOLOR="#FFFFFF" WIDTH="35%" STYLE="font:8pt Verdana,Arial,Helvetica;">msg &lt;ObjectName&gt; (VISIBLE 1)&lt;BR&gt;msg &lt;ObjectName&gt; (VISIBLE 0)</TD>
+	</TR>
+	<TR>
+		<TD BGCOLOR="#FFFFFF" WIDTH="25%" STYLE="font:8pt Verdana,Arial,Helvetica;">SOLID &lt;bool&gt;</TD>
+		<TD BGCOLOR="#FFFFFF" WIDTH="40%" STYLE="font:8pt Verdana,Arial,Helvetica;">Toggles whether the object is solid.</TD>
+		<TD BGCOLOR="#FFFFFF" WIDTH="35%" STYLE="font:8pt Verdana,Arial,Helvetica;">msg &lt;ObjectName&gt; (SOLID 1)&lt;BR&gt;msg &lt;ObjectName&gt; (SOLID 0)</TD>
+	</TR>
+	<TR>
+		<TD BGCOLOR="#FFFFFF" WIDTH="25%" STYLE="font:8pt Verdana,Arial,Helvetica;">HIDDEN &lt;bool&gt;</TD>
+		<TD BGCOLOR="#FFFFFF" WIDTH="40%" STYLE="font:8pt Verdana,Arial,Helvetica;">Toggles whether the object is visible, solid, and rayhit.</TD>
+		<TD BGCOLOR="#FFFFFF" WIDTH="35%" STYLE="font:8pt Verdana,Arial,Helvetica;">msg &lt;ObjectName&gt; (HIDDEN 1)&lt;BR&gt;msg &lt;ObjectName&gt; (HIDDEN 0)</TD>
+	</TR>
+	<TR>
+		<TD BGCOLOR="#FFFFFF" WIDTH="25%" STYLE="font:8pt Verdana,Arial,Helvetica;">REMOVE</TD>
+		<TD BGCOLOR="#FFFFFF" WIDTH="40%" STYLE="font:8pt Verdana,Arial,Helvetica;">Removes the object from the game permanently.</TD>
+		<TD BGCOLOR="#FFFFFF" WIDTH="35%" STYLE="font:8pt Verdana,Arial,Helvetica;">msg &lt;ObjectName&gt; REMOVE</TD>
+	</TR>
+	<TR>
+		<TD BGCOLOR="#FFFFFF" WIDTH="25%" STYLE="font:8pt Verdana,Arial,Helvetica;">CASTSHADOW &lt;bool&gt;</TD>
+		<TD BGCOLOR="#FFFFFF" WIDTH="40%" STYLE="font:8pt Verdana,Arial,Helvetica;">Toggles whether the object casts a shadow.</TD>
+		<TD BGCOLOR="#FFFFFF" WIDTH="35%" STYLE="font:8pt Verdana,Arial,Helvetica;">msg &lt;ObjectName&gt; (CASTSHADOW 1)&lt;BR&gt;msg &lt;ObjectName&gt; (CASTSHADOW 0)</TD>
+	</TR>
+	<TR>
+		<TD BGCOLOR="#FFFFFF" WIDTH="25%" STYLE="font:8pt Verdana,Arial,Helvetica;">SETPOS &lt;X&gt; &lt;Y&gt; &lt;Z&gt;</TD>
+		<TD BGCOLOR="#FFFFFF" WIDTH="40%" STYLE="font:8pt Verdana,Arial,Helvetica;">DEBUGGING ONLY.  Sets the position of an object.</TD>
+		<TD BGCOLOR="#FFFFFF" WIDTH="35%" STYLE="font:8pt Verdana,Arial,Helvetica;">msg &lt;ObjectName&gt; (MOVETOPOS 50.5 100 75)</TD>
+	</TR>
+	<TR>
+		<TD BGCOLOR="#FFFFFF" WIDTH="25%" STYLE="font:8pt Verdana,Arial,Helvetica;">MOVETOPOS &lt;X&gt; &lt;Y&gt; &lt;Z&gt;</TD>
+		<TD BGCOLOR="#FFFFFF" WIDTH="40%" STYLE="font:8pt Verdana,Arial,Helvetica;">DEBUGGING ONLY.  Moves to the position, with collisions.</TD>
+		<TD BGCOLOR="#FFFFFF" WIDTH="35%" STYLE="font:8pt Verdana,Arial,Helvetica;">msg &lt;ObjectName&gt; (MOVETOPOS 50.5 100 75)</TD>
+	</TR>
+	<TR>
+		<TD BGCOLOR="#FFFFFF" WIDTH="25%" STYLE="font:8pt Verdana,Arial,Helvetica;">SETROTATION &lt;yaw&gt; &lt;pitch&gt; &lt;roll&gt;</TD>
+		<TD BGCOLOR="#FFFFFF" WIDTH="40%" STYLE="font:8pt Verdana,Arial,Helvetica;">DEBUGGING ONLY.  Rotates object to euler angles.</TD>
+		<TD BGCOLOR="#FFFFFF" WIDTH="35%" STYLE="font:8pt Verdana,Arial,Helvetica;">msg &lt;ObjectName&gt; (SETROTATION 90.0 0 0)</TD>
+	</TR>
+	<TR>
+		<TD BGCOLOR="#FFFFFF" WIDTH="25%" STYLE="font:8pt Verdana,Arial,Helvetica;">COPYXFORM &lt;object&gt;</TD>
+		<TD BGCOLOR="#FFFFFF" WIDTH="40%" STYLE="font:8pt Verdana,Arial,Helvetica;">DEBUGGING ONLY.  Copies trasform of &lt;object&gt; to this object.</TD>
+		<TD BGCOLOR="#FFFFFF" WIDTH="35%" STYLE="font:8pt Verdana,Arial,Helvetica;">msg &lt;ObjectName&gt; (COPYXFORM ThePoint)</TD>
+	</TR>
+	<TR>
+		<TD BGCOLOR="#FFFFFF" WIDTH="25%" STYLE="font:8pt Verdana,Arial,Helvetica;">ON</TD>
+		<TD BGCOLOR="#FFFFFF" WIDTH="40%" STYLE="font:8pt Verdana,Arial,Helvetica;">Turns the camera on. Switches the view from the player to that of the camera</TD>
+		<TD BGCOLOR="#FFFFFF" WIDTH="35%" STYLE="font:8pt Verdana,Arial,Helvetica;">msg Camera on</TD>
+	</TR>
+	<TR>
+		<TD BGCOLOR="#FFFFFF" WIDTH="25%" STYLE="font:8pt Verdana,Arial,Helvetica;">OFF</TD>
+		<TD BGCOLOR="#FFFFFF" WIDTH="40%" STYLE="font:8pt Verdana,Arial,Helvetica;">Turns the camera off. Switches the view from the Camera to that of the Player</TD>
+		<TD BGCOLOR="#FFFFFF" WIDTH="35%" STYLE="font:8pt Verdana,Arial,Helvetica;">msg Camera off</TD>
+	</TR>
+	<TR>
+		<TD BGCOLOR="#FFFFFF" WIDTH="25%" STYLE="font:8pt Verdana,Arial,Helvetica;">SKIP</TD>
+		<TD BGCOLOR="#FFFFFF" WIDTH="40%" STYLE="font:8pt Verdana,Arial,Helvetica;">Turns the camera off if it can be skipped</TD>
+		<TD BGCOLOR="#FFFFFF" WIDTH="35%" STYLE="font:8pt Verdana,Arial,Helvetica;">msg Camera skip</TD>
+	</TR>
+	<TR>
+		<TD BGCOLOR="#FFFFFF" WIDTH="25%" STYLE="font:8pt Verdana,Arial,Helvetica;">MOVETO &lt;camerapoint&gt;</TD>
+		<TD BGCOLOR="#FFFFFF" WIDTH="40%" STYLE="font:8pt Verdana,Arial,Helvetica;">The camera will move to the specified CameraPoint object</TD>
+		<TD BGCOLOR="#FFFFFF" WIDTH="35%" STYLE="font:8pt Verdana,Arial,Helvetica;">msg Camera (moveto CameraPoint1)</TD>
+	</TR>
+	<TR>
+		<TD BGCOLOR="#FFFFFF" WIDTH="25%" STYLE="font:8pt Verdana,Arial,Helvetica;">FOV &lt;FovY&gt; &lt;FovAspectScale&gt; [time]</TD>
+		<TD BGCOLOR="#FFFFFF" WIDTH="40%" STYLE="font:8pt Verdana,Arial,Helvetica;">Changes the Camera FOV over a period of time.  The time parameter is optional</TD>
+		<TD BGCOLOR="#FFFFFF" WIDTH="35%" STYLE="font:8pt Verdana,Arial,Helvetica;">To change the camera FOV to an Y FOV of 60 and a normal 1.0 Aspect Scale over a period of five seconds on a Camera named "Camera", the command would look like:<BR><BR>msg Camera (60 1 5)</TD>
+	</TR>
+
+	</TABLE>
+	</TD>
+	</TR>
+	</TABLE>
+
+	<BR><BR>
+
+	<TABLE BORDER="0" WIDTH="100%" CELLPADDING="1" CELLSPACING="0" BGCOLOR="#808080">
+	<TR><TD>
+	<TABLE BORDER="0" WIDTH="100%" CELLPADDING="4" CELLSPACING="1" COLS="3">
+	<TR>
+		<TD BGCOLOR="#FFFFFF" WIDTH="25%" STYLE="font:10pt Verdana,Arial,Helvetica;"><B>Property</B></TD>
+		<TD BGCOLOR="#FFFFFF" WIDTH="40%" STYLE="font:10pt Verdana,Arial,Helvetica;"><B>Description</B></TD>
+		<TD BGCOLOR="#FFFFFF" WIDTH="17%" STYLE="font:10pt Verdana,Arial,Helvetica;"><B>Type</B></TD>
+		<TD BGCOLOR="#FFFFFF" WIDTH="18%" STYLE="font:10pt Verdana,Arial,Helvetica;"><B>Default</B></TD>
+	</TR>
+			<TR>
+		<TD BGCOLOR="#FFFFFF" WIDTH="25%" STYLE="font:8pt Verdana,Arial,Helvetica;">Name</TD>
+		<TD BGCOLOR="#FFFFFF" WIDTH="40%" STYLE="font:8pt Verdana,Arial,Helvetica;">The name of this object</TD>
+		<TD BGCOLOR="#FFFFFF" WIDTH="17%" STYLE="font:8pt Verdana,Arial,Helvetica;">String</TD>
+		<TD BGCOLOR="#FFFFFF" WIDTH="18%" STYLE="font:8pt Verdana,Arial,Helvetica;">noname</TD>
+	</TR>
+	<TR>
+		<TD BGCOLOR="#FFFFFF" WIDTH="25%" STYLE="font:8pt Verdana,Arial,Helvetica;">Pos</TD>
+		<TD BGCOLOR="#FFFFFF" WIDTH="40%" STYLE="font:8pt Verdana,Arial,Helvetica;">The position in the world of this object.</TD>
+		<TD BGCOLOR="#FFFFFF" WIDTH="17%" STYLE="font:8pt Verdana,Arial,Helvetica;">Vector (Distance)</TD>
+		<TD BGCOLOR="#FFFFFF" WIDTH="18%" STYLE="font:8pt Verdana,Arial,Helvetica;">0.000000, 0.000000, 0.000000</TD>
+	</TR>
+	<TR>
+		<TD BGCOLOR="#FFFFFF" WIDTH="25%" STYLE="font:8pt Verdana,Arial,Helvetica;">Rotation</TD>
+		<TD BGCOLOR="#FFFFFF" WIDTH="40%" STYLE="font:8pt Verdana,Arial,Helvetica;">The orientation of this object represented by euler angles in degrees</TD>
+		<TD BGCOLOR="#FFFFFF" WIDTH="17%" STYLE="font:8pt Verdana,Arial,Helvetica;">Rotation</TD>
+		<TD BGCOLOR="#FFFFFF" WIDTH="18%" STYLE="font:8pt Verdana,Arial,Helvetica;">0.000000, 0.000000, 0.000000</TD>
+	</TR>
+	<TR>
+		<TD BGCOLOR="#FFFFFF" WIDTH="25%" STYLE="font:8pt Verdana,Arial,Helvetica;">Template</TD>
+		<TD BGCOLOR="#FFFFFF" WIDTH="40%" STYLE="font:8pt Verdana,Arial,Helvetica;">Indicates that this object will not exist at runtime, and may be used as an object template for Spawner objects</TD>
+		<TD BGCOLOR="#FFFFFF" WIDTH="17%" STYLE="font:8pt Verdana,Arial,Helvetica;">Boolean</TD>
+		<TD BGCOLOR="#FFFFFF" WIDTH="18%" STYLE="font:8pt Verdana,Arial,Helvetica;">0.000000</TD>
+	</TR>
+	<TR>
+		<TD BGCOLOR="#FFFFFF" WIDTH="25%" STYLE="font:8pt Verdana,Arial,Helvetica;">IsGore</TD>
+		<TD BGCOLOR="#FFFFFF" WIDTH="40%" STYLE="font:8pt Verdana,Arial,Helvetica;">Indicates that this object is gory and should not exist for low-violence clients.</TD>
+		<TD BGCOLOR="#FFFFFF" WIDTH="17%" STYLE="font:8pt Verdana,Arial,Helvetica;">Boolean</TD>
+		<TD BGCOLOR="#FFFFFF" WIDTH="18%" STYLE="font:8pt Verdana,Arial,Helvetica;">0.000000</TD>
+	</TR>
+	<TR>
+		<TD BGCOLOR="#FFFFFF" WIDTH="25%" STYLE="font:8pt Verdana,Arial,Helvetica;">ObjectLOD</TD>
+		<TD BGCOLOR="#FFFFFF" WIDTH="40%" STYLE="font:8pt Verdana,Arial,Helvetica;">This value indicates at which detail levels the object will exist. For example at Low, this object will always exist, at Medium it will only exist in medium and high detail, and Never will cause the object to never exist.</TD>
+		<TD BGCOLOR="#FFFFFF" WIDTH="17%" STYLE="font:8pt Verdana,Arial,Helvetica;">String (StaticList)</TD>
+		<TD BGCOLOR="#FFFFFF" WIDTH="18%" STYLE="font:8pt Verdana,Arial,Helvetica;">Low</TD>
+	</TR>
+	<TR>
+		<TD BGCOLOR="#FFFFFF" WIDTH="25%" STYLE="font:8pt Verdana,Arial,Helvetica;">ActiveTime</TD>
+		<TD BGCOLOR="#FFFFFF" WIDTH="40%" STYLE="font:8pt Verdana,Arial,Helvetica;">If you want a camera to return to the player after a set period, give the camera a time-limit property.</TD>
+		<TD BGCOLOR="#FFFFFF" WIDTH="17%" STYLE="font:8pt Verdana,Arial,Helvetica;">Float</TD>
+		<TD BGCOLOR="#FFFFFF" WIDTH="18%" STYLE="font:8pt Verdana,Arial,Helvetica;">-1.000000</TD>
+	</TR>
+	<TR>
+		<TD BGCOLOR="#FFFFFF" WIDTH="25%" STYLE="font:8pt Verdana,Arial,Helvetica;">AllowPlayerMovement</TD>
+		<TD BGCOLOR="#FFFFFF" WIDTH="40%" STYLE="font:8pt Verdana,Arial,Helvetica;">Choose whether the player can move or not while the camera's running. Obviously, in most cases the camera should keep players still.</TD>
+		<TD BGCOLOR="#FFFFFF" WIDTH="17%" STYLE="font:8pt Verdana,Arial,Helvetica;">Boolean</TD>
+		<TD BGCOLOR="#FFFFFF" WIDTH="18%" STYLE="font:8pt Verdana,Arial,Helvetica;">0.000000</TD>
+	</TR>
+	<TR>
+		<TD BGCOLOR="#FFFFFF" WIDTH="25%" STYLE="font:8pt Verdana,Arial,Helvetica;">OneTime</TD>
+		<TD BGCOLOR="#FFFFFF" WIDTH="40%" STYLE="font:8pt Verdana,Arial,Helvetica;">Keeps the camera from being activated after it's been run once, even if it's triggered again.</TD>
+		<TD BGCOLOR="#FFFFFF" WIDTH="17%" STYLE="font:8pt Verdana,Arial,Helvetica;">Boolean</TD>
+		<TD BGCOLOR="#FFFFFF" WIDTH="18%" STYLE="font:8pt Verdana,Arial,Helvetica;">1.000000</TD>
+	</TR>
+	<TR>
+		<TD BGCOLOR="#FFFFFF" WIDTH="25%" STYLE="font:8pt Verdana,Arial,Helvetica;">Type</TD>
+		<TD BGCOLOR="#FFFFFF" WIDTH="40%" STYLE="font:8pt Verdana,Arial,Helvetica;">There are two types of camera: full-screen = 0 and cinematic letterboxed = 1.</TD>
+		<TD BGCOLOR="#FFFFFF" WIDTH="17%" STYLE="font:8pt Verdana,Arial,Helvetica;">Integer</TD>
+		<TD BGCOLOR="#FFFFFF" WIDTH="18%" STYLE="font:8pt Verdana,Arial,Helvetica;">1.000000</TD>
+	</TR>
+	<TR>
+		<TD BGCOLOR="#FFFFFF" WIDTH="25%" STYLE="font:8pt Verdana,Arial,Helvetica;">StartActive</TD>
+		<TD BGCOLOR="#FFFFFF" WIDTH="40%" STYLE="font:8pt Verdana,Arial,Helvetica;">Allows you to have the camera start when the level starts for an intro cutscene.</TD>
+		<TD BGCOLOR="#FFFFFF" WIDTH="17%" STYLE="font:8pt Verdana,Arial,Helvetica;">Boolean</TD>
+		<TD BGCOLOR="#FFFFFF" WIDTH="18%" STYLE="font:8pt Verdana,Arial,Helvetica;">0.000000</TD>
+	</TR>
+	<TR>
+		<TD BGCOLOR="#FFFFFF" WIDTH="25%" STYLE="font:8pt Verdana,Arial,Helvetica;">IsListener</TD>
+		<TD BGCOLOR="#FFFFFF" WIDTH="40%" STYLE="font:8pt Verdana,Arial,Helvetica;">If you want the camera to relay sounds it hears to the player instead of the sounds at the player's location, use this flag.</TD>
+		<TD BGCOLOR="#FFFFFF" WIDTH="17%" STYLE="font:8pt Verdana,Arial,Helvetica;">Boolean</TD>
+		<TD BGCOLOR="#FFFFFF" WIDTH="18%" STYLE="font:8pt Verdana,Arial,Helvetica;">1.000000</TD>
+	</TR>
+	<TR>
+		<TD BGCOLOR="#FFFFFF" WIDTH="25%" STYLE="font:8pt Verdana,Arial,Helvetica;">CanSkip</TD>
+		<TD BGCOLOR="#FFFFFF" WIDTH="40%" STYLE="font:8pt Verdana,Arial,Helvetica;">If set to true, the player can interrupt the cinematic by pressing the action key in the game. If this flag is set to false, the cinematic cannot be interrupted.</TD>
+		<TD BGCOLOR="#FFFFFF" WIDTH="17%" STYLE="font:8pt Verdana,Arial,Helvetica;">Boolean</TD>
+		<TD BGCOLOR="#FFFFFF" WIDTH="18%" STYLE="font:8pt Verdana,Arial,Helvetica;">1.000000</TD>
+	</TR>
+	<TR>
+		<TD BGCOLOR="#FFFFFF" WIDTH="25%" STYLE="font:8pt Verdana,Arial,Helvetica;">CleanupCommand</TD>
+		<TD BGCOLOR="#FFFFFF" WIDTH="40%" STYLE="font:8pt Verdana,Arial,Helvetica;">A command that will be executed when the Camera is turned off, either by a message or by the player skipping it.</TD>
+		<TD BGCOLOR="#FFFFFF" WIDTH="17%" STYLE="font:8pt Verdana,Arial,Helvetica;">Command</TD>
+		<TD BGCOLOR="#FFFFFF" WIDTH="18%" STYLE="font:8pt Verdana,Arial,Helvetica;"></TD>
+	</TR>
+	<TR>
+		<TD BGCOLOR="#FFFFFF" WIDTH="25%" STYLE="font:8pt Verdana,Arial,Helvetica;">FovY</TD>
+		<TD BGCOLOR="#FFFFFF" WIDTH="40%" STYLE="font:8pt Verdana,Arial,Helvetica;">The starting Field Of View Y value.  Note: You can dynamicly change the FovY and AspectScale values of a camera by sending it an FOV message.</TD>
+		<TD BGCOLOR="#FFFFFF" WIDTH="17%" STYLE="font:8pt Verdana,Arial,Helvetica;">Float</TD>
+		<TD BGCOLOR="#FFFFFF" WIDTH="18%" STYLE="font:8pt Verdana,Arial,Helvetica;">78.000000</TD>
+	</TR>
+	<TR>
+		<TD BGCOLOR="#FFFFFF" WIDTH="25%" STYLE="font:8pt Verdana,Arial,Helvetica;">FovAspectScale</TD>
+		<TD BGCOLOR="#FFFFFF" WIDTH="40%" STYLE="font:8pt Verdana,Arial,Helvetica;">The starting Field Of View Aspect Scale value. This value is used for special effects to warp the field of view in the X direction. >1 will cause the view to grow outwards, <1 will shrink the FOV in the X direction. Note: You can dynamicly change the FovY and Aspect Scale values of a camera by sending it an FOV message.</TD>
+		<TD BGCOLOR="#FFFFFF" WIDTH="17%" STYLE="font:8pt Verdana,Arial,Helvetica;">Float</TD>
+		<TD BGCOLOR="#FFFFFF" WIDTH="18%" STYLE="font:8pt Verdana,Arial,Helvetica;">1.000000</TD>
+	</TR>
+	<TR>
+		<TD BGCOLOR="#FFFFFF" WIDTH="25%" STYLE="font:8pt Verdana,Arial,Helvetica;">OnSkipCleanupOnly</TD>
+		<TD BGCOLOR="#FFFFFF" WIDTH="40%" STYLE="font:8pt Verdana,Arial,Helvetica;">If set to true, only the CleanupCommand will be sent if the player skips the cinematic.  The camera will be able to be activated again even if OneTime is set to true.</TD>
+		<TD BGCOLOR="#FFFFFF" WIDTH="17%" STYLE="font:8pt Verdana,Arial,Helvetica;">Boolean</TD>
+		<TD BGCOLOR="#FFFFFF" WIDTH="18%" STYLE="font:8pt Verdana,Arial,Helvetica;">0.000000</TD>
+	</TR>
+
+	</TABLE>
+	</TD>
+	</TR>
+	</TABLE>
+
+
+	</BODY>
+</HTML>

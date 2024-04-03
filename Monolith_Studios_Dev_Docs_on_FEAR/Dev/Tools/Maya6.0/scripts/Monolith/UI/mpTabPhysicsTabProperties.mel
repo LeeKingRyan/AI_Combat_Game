@@ -1,0 +1,1408 @@
+//--------------------------------------------------------------------------------------------
+/** @file   Monolith/UI/mpTabPhysicsTabProperties.mel
+ *  @date   10/15/2004
+ *
+ * (c) 1997-2004 Monolith Productions, Inc.  All Rights Reserved
+ */
+//--------------------------------------------------------------------------------------------
+
+source "monolith/mpModelUtility.mel";
+source "monolith/mpModelImport.mel";
+source "monolith/mpModelExport.mel";
+source "monolith/UI/mpTabPhysics.mel";
+
+//--------------------------------------------------------------------------------------------
+/** @author Jeff Cotton
+ *  @date   10/01/2004
+ *  @param  $newValue - the new value selected in the optionMenu
+ *  @brief  sets the value of the attribute to the new value selected in the optionMenu
+ */
+global proc mpUITabPhysicsTabPropertiesModelVisibleJointChangedCommand( string $newValue )
+{
+	string $rootJoint = mpGetRootJoint( false, true );
+	
+	if ( "[none]" == $newValue )
+	{
+		$newValue = "";
+	}
+	
+	mpSetPhysicsVisibleNode( $newValue, $rootJoint, true ); 
+}
+
+//--------------------------------------------------------------------------------------------
+/** @author Jeff Cotton
+ *  @date   10/01/2004
+ *  @param  $parentUI - parent UI of the joint properties ui we want to operate on
+ *  @brief  Update the UI with new values from external UI. (the selection in the joint list)
+ */
+global proc mpUITabPhysicsTabPropertiesModelUpdate( string $parentUI )
+{
+	string $controlPath = $parentUI + "|Model";
+	
+	// if we haven't created the UI yet then create it.
+	if ( !`layout -exists $controlPath` )
+	{
+		$oldParentUI = `setParent -query`;
+		
+		setParent $parentUI;
+		{
+			mpUITabPhysicsTabPropertiesModelCreate();
+		}
+		setParent $oldParentUI;
+	}
+	
+	string $basePath           = $controlPath;
+	string $visibleJoint       = $basePath + "|VisibleJoint";
+	string $visibleJointText   = $visibleJoint + "Text";
+	string $visibleRadius      = $basePath + "|VisibleRadius";
+	string $visibleRadiusText  = $visibleRadius + "Text";
+	string $totalMass          = $basePath + "|TotalMass";
+	string $totalMassText      = $totalMass + "Text";
+	string $baseDensity        = $basePath + "|BaseDensity";
+	string $baseDensityText    = $baseDensity + "Text";
+	
+	string $rootJoint = mpGetRootJoint( false, true );
+	int    $bEnable   = ( "" == $rootJoint ? false : true );
+	
+	control -edit -enable $bEnable $visibleJoint;
+	control -edit -enable $bEnable $visibleJointText;
+	control -edit -enable $bEnable $visibleRadius;
+	control -edit -enable $bEnable $visibleRadiusText;
+	control -edit -enable $bEnable $totalMass;
+	control -edit -enable $bEnable $totalMassText;
+	control -edit -enable $bEnable $baseDensity;
+	control -edit -enable $bEnable $baseDensityText;
+	
+	if ( $bEnable )
+	{
+		string $joints[]         = mpRelativePaths( $rootJoint, mpGetJoints( $rootJoint, true ) );
+		string $menuItems[]      = `optionMenu -query -itemListLong $visibleJoint`;
+		string $visibleJointName = mpGetPhysicsVisibleNode( $rootJoint, true );
+		
+		if ( "" == $visibleJointName )
+		{
+			$visibleJointName = "[none]";
+		}
+		
+		for ( $menuItem in $menuItems )
+		{
+			deleteUI $menuItem;
+		}
+		
+		menuItem -parent $visibleJoint "[none]";
+		
+		for ( $joint in $joints )
+		{
+			menuItem -parent $visibleJoint $joint;
+		}
+		
+		// select the correct node
+		optionMenu -edit -value $visibleJointName $visibleJoint;
+		
+		connectControl $visibleRadius ( $rootJoint + ".mpPhysicsVisibleRadius" );
+		connectControl $totalMass ( $rootJoint + ".mpPhysicsModelWeight" );
+		connectControl $baseDensity ( $rootJoint + ".mpPhysicsModelDensity" );
+	}
+}
+
+//--------------------------------------------------------------------------------------------
+/** @author Jeff Cotton
+ *  @date   10/01/2004
+ *  @param  $parentUI - parent UI of the joint properties ui we want to operate on
+ *  @brief  Delete the Properties Model UI if it exists on this parent
+ */
+global proc mpUITabPhysicsTabPropertiesModelDelete( string $parentUI )
+{
+	string $controlPath = $parentUI + "|Model";
+	
+	if ( `frameLayout -exists $controlPath` )
+	{
+		deleteUI $controlPath;
+	}
+}
+
+//--------------------------------------------------------------------------------------------
+/** @author Jeff Cotton
+ *  @date   10/01/2004
+ *  @param  $parentUI - parent UI of the joint properties ui we want to operate on
+ *  @return full ELF path to the newly createUI (this is a framelayout)
+ *  @brief  Create the properties Model UI the parent must already be set up
+ */
+global proc string mpUITabPhysicsTabPropertiesModelCreate()
+{
+	string $parentUI = `setParent -query`;
+	
+	mpUITabPhysicsTabPropertiesModelDelete( $parentUI );
+	
+	string $layout = `formLayout -numberOfDivisions 100 "Model"`;
+	{
+		mpUIEmbedUpdateCommand( "mpUITabPhysicsTabPropertiesModelUpdate( \"" + $parentUI + "\" )" );
+		
+		string $rootJointUI = `textField -manage false -text "" RootJoint`;
+		
+		string $visibleJointText = `text -label  "Visible Joint"
+		                                  -enable false
+		                                  -align  "left"
+		                                  VisibleJointText`;
+		
+		string $changeCommand = "mpUITabPhysicsTabPropertiesModelVisibleJointChangedCommand( `optionMenu -query -value \"" + ( $layout + "|VisibleJoint" ) + "\"` );";
+		string $visibleJoint = `optionMenu -enable           false
+		                                   -changeCommand    $changeCommand
+		                                   -width            600
+		                                   VisibleJoint`;
+		{
+			menuItem -label "[none]";
+		}
+		setParent -menu ..;
+		
+		string $visibleRadiusText = `text -label  "Visible Radius (cm)"
+		                                  -enable false
+		                                  -align  "left"
+		                                  VisibleRadiusText`;
+		
+		string $visibleRadius = `floatSliderGrp -enable           false
+		                                        -field            true
+		                                        -columnWidth      1 60
+		                                        -adjustableColumn 2
+		                                        -min              0
+		                                        -max              1000
+		                                        -fieldMinValue    0
+		                                        -fieldMaxValue    100000
+		                                        VisibleRadius`;
+		
+		string $totalMassText = `text -label  "Total Mass (Kg)"
+		                              -enable false
+		                              -align  "left"
+		                              TotalMassText`;
+		
+		string $totalMass = `floatSliderGrp -enable           false
+		                                    -field            true
+		                                    -columnWidth      1 60
+		                                    -adjustableColumn 2
+		                                    -min              0
+		                                    -max              1000
+		                                    -fieldMinValue    0
+		                                    -fieldMaxValue    100000
+		                                    TotalMass`;
+		
+		string $baseDensityText = `text -label  "Base Density (g/cm3)"
+		                                -enable false
+		                                -align  "left"
+		                                BaseDensityText`;
+		
+		string $baseDensity = `floatSliderGrp -enable           false
+		                                      -field            true
+		                                      -columnWidth      1 60
+		                                      -adjustableColumn 2
+		                                      -min              0
+		                                      -max              10
+		                                      -fieldMinValue    0
+		                                      -fieldMaxValue    100000
+		                                      BaseDensity`;
+		
+		formLayout -edit -attachForm    $visibleJointText  "top"    5
+		                 -attachForm    $visibleJointText  "left"   5
+		                 -attachNone    $visibleJointText  "bottom"
+		                 -attachForm    $visibleJointText  "right"  5
+		                 
+		                 -attachControl $visibleJoint      "top"    5 $visibleJointText
+		                 -attachForm    $visibleJoint      "left"   5
+		                 -attachNone    $visibleJoint      "bottom"
+		                 -attachForm    $visibleJoint      "right"  5
+		                 
+		                 -attachControl $visibleRadiusText "top"    5 $visibleJoint
+		                 -attachForm    $visibleRadiusText "left"   5
+		                 -attachNone    $visibleRadiusText "bottom"
+		                 -attachForm    $visibleRadiusText "right"  5
+		                 
+		                 -attachControl $visibleRadius     "top"    5 $visibleRadiusText
+		                 -attachForm    $visibleRadius     "left"   5
+		                 -attachNone    $visibleRadius     "bottom"
+		                 -attachForm    $visibleRadius     "right"  5
+		                 
+		                 -attachControl $totalMassText     "top"    5 $visibleRadius
+		                 -attachForm    $totalMassText     "left"   5
+		                 -attachNone    $totalMassText     "bottom"
+		                 -attachForm    $totalMassText     "right"  5
+		                 
+		                 -attachControl $totalMass         "top"    5 $totalMassText
+		                 -attachForm    $totalMass         "left"   5
+		                 -attachNone    $totalMass         "bottom"
+		                 -attachForm    $totalMass         "right"  5
+		                 
+		                 -attachControl $baseDensityText   "top"    5 $totalMass
+		                 -attachForm    $baseDensityText   "left"   5
+		                 -attachNone    $baseDensityText   "bottom"
+		                 -attachForm    $baseDensityText   "right"  5
+		                 
+		                 -attachControl $baseDensity       "top"    5 $baseDensityText
+		                 -attachForm    $baseDensity       "left"   5
+		                 -attachForm    $baseDensity       "bottom" 5
+		                 -attachForm    $baseDensity       "right"  5
+		                 
+		                 $layout;
+	}
+	setParent ..;
+	
+	mpUITabPhysicsTabPropertiesModelUpdate( $parentUI );
+	
+	return $layout;
+}
+
+
+//--------------------------------------------------------------------------------------------
+/** @author Jeff Cotton
+ *  @date   10/01/2004
+ *  @param  $parentUI - parent UI of the joint properties ui we want to operate on
+ *  @brief  execute the Create command for a joint selection
+ */
+global proc mpUITabPhysicsTabPropertiesJointCreateButtonCommand( string $parentUI, string $getSelectionCallback )
+{
+	string $selection[];
+	
+	if ( "" != $getSelectionCallback )
+	{
+		$selection = eval( $getSelectionCallback );
+	}
+	else
+	{
+		warning( "Create command will not function correctly without a selection Callback" );
+	}
+	
+	for ( $joint in $selection )
+	{
+		catch( mpJointCreateRigidBody( $joint, "Sphere", false, true ) );
+	}
+}
+
+//--------------------------------------------------------------------------------------------
+/** @author Jeff Cotton
+ *  @date   10/01/2004
+ *  @param  $parentUI - parent UI of the joint properties ui we want to operate on
+ *  @brief  Update the UI with new values from external UI. (the selection in the joint list)
+ */
+global proc mpUITabPhysicsTabPropertiesJointUpdate( string $parentUI, string $getSelectionCallback )
+{
+	string $controlPath = $parentUI + "|Joint";
+	
+	// if we haven't created the UI yet then create it.
+	if ( !`layout -exists $controlPath` )
+	{
+		$oldParentUI = `setParent -query`;
+		
+		setParent $parentUI;
+		{
+			mpUITabPhysicsTabPropertiesJointCreate( $getSelectionCallback );
+		}
+		setParent $oldParentUI;
+	}
+	
+	string $selection[];
+	
+	if ( "" != $getSelectionCallback )
+	{
+		$selection = eval( $getSelectionCallback );
+	}
+	else
+	{
+		warning( "Joint UI will not function correctly without a selection Callback" );
+	}
+	
+	int $bEnable = ( 0 == size( $selection ) ? false : true );
+	
+	for ( $joint in $selection )
+	{
+		$bEnable = $bEnable && ( "" != mpJointGetRigidBodyEntity( $joint ) );
+	}
+	
+	int $bCanCreate = ( !$bEnable && 0 != size( $selection ) );
+	
+	string $basePath           = $controlPath;
+	string $bounciness         = $basePath + "|Bounciness";
+	string $bouncinessText     = $bounciness + "Text";
+	string $friction           = $basePath + "|Friction";
+	string $frictionText       = $friction + "Text";
+	string $collisionGroup     = $basePath + "|CollisionGroup";
+	string $collisionGroupText = $collisionGroup + "Text";
+	string $createButton       = $basePath + "|Create";
+	
+	control -edit -enable $bEnable    $bounciness;
+	control -edit -enable $bEnable    $bouncinessText;
+	control -edit -enable $bEnable    $friction;
+	control -edit -enable $bEnable    $frictionText;
+	control -edit -enable $bEnable    $collisionGroup;
+	control -edit -enable $bEnable    $collisionGroupText;
+	control -edit -enable $bCanCreate $createButton;
+	
+	if ( $bEnable )
+	{
+		string $elasticities[];
+		string $frictions[];
+		string $colllisionGroups[];
+		for ( $joint in $selection )
+		{
+			string $rigidBodyEntity = mpJointGetRigidBodyEntity( $joint );
+			$elasticities[size( $elasticities )] = ( $rigidBodyEntity + ".elasticity" );
+			$frictions[size( $frictions )] = ( $rigidBodyEntity + ".friction" );
+			$colllisionGroups[size( $colllisionGroups )] = ( $rigidBodyEntity + ".collisionFilterInfoSystem" );
+		}
+		
+		connectControl $bounciness $elasticities;
+		connectControl $friction $frictions;
+		connectControl $collisionGroup $colllisionGroups;
+	}
+}
+
+//--------------------------------------------------------------------------------------------
+/** @author Jeff Cotton
+ *  @date   10/01/2004
+ *  @param  $parentUI - parent UI of the joint properties ui we want to operate on
+ *  @brief  Delete the Properties Joint UI if it exists on this parent
+ */
+global proc mpUITabPhysicsTabPropertiesJointDelete( string $parentUI )
+{
+	string $controlPath = $parentUI + "|Joint";
+	
+	if ( `frameLayout -exists $controlPath` )
+	{
+		deleteUI $controlPath;
+	}
+}
+
+//--------------------------------------------------------------------------------------------
+/** @author Jeff Cotton
+ *  @date   10/01/2004
+ *  @param  $parentUI - parent UI of the joint properties ui we want to operate on
+ *  @return full ELF path to the newly createUI (this is a framelayout)
+ *  @brief  Create the properties Joint UI the parent must already be set up
+ */
+global proc string mpUITabPhysicsTabPropertiesJointCreate( string $getSelectionCallback )
+{
+	string $parentUI = `setParent -query`;
+	
+	mpUITabPhysicsTabPropertiesJointDelete( $parentUI );
+	
+	string $layout = `formLayout -numberOfDivisions 100 "Joint"`;
+	{
+		mpUIEmbedUpdateCommand( "mpUITabPhysicsTabPropertiesJointUpdate( \"" + $parentUI + "\", \"" + encodeString( $getSelectionCallback ) + "\" )" );
+		
+		string $bouncinessText = `text -label  "Coefficient of Restitution (Bounciness)"
+		                               -enable false
+		                               -align  "left"
+		                               BouncinessText`;
+		
+		string $bounciness = `floatSliderGrp -enable           false
+		                                     -field            true
+		                                     -columnWidth      1 60
+		                                     -adjustableColumn 2
+		                                     -min              0
+		                                     -max              1
+		                                     -fieldMinValue    0
+		                                     -fieldMaxValue    1
+		                                     -step             0.0001
+		                                     Bounciness`;
+		
+		string $frictionText = `text -label "Friction (Sliperiness)"
+		                             -enable false
+		                             -align  "left"
+		                             FrictionText`;
+		
+		string $friction = `floatSliderGrp -enable           false
+		                                   -field            true
+		                                   -columnWidth      1 60
+		                                   -adjustableColumn 2
+		                                   -min              0
+		                                   -max              1
+		                                   -fieldMinValue    0
+		                                   -fieldMaxValue    1
+		                                   -step             0.0001
+		                                   Friction`;
+		
+		string $collisionGroupText = `text -label "Collision Group"
+		                                   -enable false
+		                                   -align  "left"
+		                                   CollisionGroupText`;
+		
+		string $collisionGroup = `intSliderGrp -enable           false
+		                                       -field            true
+		                                       -columnWidth      1 60
+		                                       -adjustableColumn 2
+		                                       -min              0
+		                                       -max              10
+		                                       -fieldMinValue    0
+		                                       -fieldMaxValue    1000
+		                                       CollisionGroup`;
+		
+		string $createButton = `button -enable  false
+		                               -label   "Create"
+		                               -command ( "mpUITabPhysicsTabPropertiesJointCreateButtonCommand( \"" + $parentUI + "\", \"" + encodeString( $getSelectionCallback ) + "\" );" )
+		                               Create`;
+		
+		formLayout -edit -attachNone    $createButton      "top"    
+		                 -attachForm    $createButton      "left"    5
+		                 -attachForm    $createButton      "bottom"  5
+		                 -attachForm    $createButton      "right"   5
+		                 
+		                 -attachForm    $bouncinessText     "top"    5
+		                 -attachForm    $bouncinessText     "left"   5
+		                 -attachNone    $bouncinessText     "bottom"
+		                 -attachForm    $bouncinessText     "right"  5
+		                 
+		                 -attachControl $bounciness         "top"    5 $bouncinessText
+		                 -attachForm    $bounciness         "left"   5
+		                 -attachNone    $bounciness         "bottom"
+		                 -attachForm    $bounciness         "right"  5
+		                 
+		                 -attachControl $frictionText       "top"    5 $bounciness
+		                 -attachForm    $frictionText       "left"   5
+		                 -attachNone    $frictionText       "bottom"
+		                 -attachForm    $frictionText       "right"  5
+		                 
+		                 -attachControl $friction           "top"    5 $frictionText
+		                 -attachForm    $friction           "left"   5
+		                 -attachNone    $friction           "bottom"
+		                 -attachForm    $friction           "right"  5
+		                 
+		                 -attachControl $collisionGroupText "top"    5 $friction
+		                 -attachForm    $collisionGroupText "left"   5
+		                 -attachNone    $collisionGroupText "bottom"
+		                 -attachForm    $collisionGroupText "right"  5
+		                 
+		                 -attachControl $collisionGroup     "top"    5 $collisionGroupText
+		                 -attachForm    $collisionGroup     "left"   5
+		                 -attachForm    $collisionGroup     "bottom" 5
+		                 -attachForm    $collisionGroup     "right"  5
+		                 
+		                 $layout;
+	}
+	setParent ..;
+	
+	mpUITabPhysicsTabPropertiesJointUpdate( $parentUI, $getSelectionCallback );
+	
+	return $layout;
+}
+
+//--------------------------------------------------------------------------------------------
+/** @author Jeff Cotton
+ *  @date   10/01/2004
+ *  @param  $parentUI - parent UI of the joint properties ui we want to operate on
+ *  @brief  Update the UI with new values from external UI. (the selection in the joint list)
+ */
+global proc mpUITabPhysicsTabPropertiesShapeDynamicUpdate( string $parentUI, string $getSelectionCallback )
+{
+	string $controlPath = $parentUI + "|Dynamic";
+	
+	// if we haven't created the UI yet then create it.
+	if ( !`layout -exists $controlPath` )
+	{
+		$oldParentUI = `setParent -query`;
+		
+		setParent $parentUI;
+		{
+			mpUITabPhysicsTabPropertiesShapeDynamicCreate( $getSelectionCallback );
+		}
+		setParent $oldParentUI;
+	}
+	
+	string $basePath        = $controlPath;
+	string $float1          = $basePath + "|Float1";
+	string $float1Text      = $float1 + "Text";
+	string $float2          = $basePath + "|Float2";
+	string $float2Text      = $float2 + "Text";
+	string $float3          = $basePath + "|Float3";
+	string $float3Text      = $float3 + "Text";
+	
+	string $selection[];
+	
+	if ( "" != $getSelectionCallback )
+	{
+		$selection = eval( $getSelectionCallback );
+	}
+	else
+	{
+		warning( "Shape UI will not function correctly without a selection Callback" );
+	}
+	
+	int $bEnable = ( 0 == size( $selection ) ? false : true );
+	
+	for ( $joint in $selection )
+	{
+		$bEnable = $bEnable && ( "" != mpJointGetRigidBodyPolyShape( $joint ) );
+	}
+	
+	string $typeUI = $parentUI + "|Type";
+	string $type   = `optionMenu -query -value $typeUI`;
+	
+	//~ print( "Type\n" );
+	//~ print( $type );
+	//~ print( "\n" );
+	
+	switch ( `tolower $type` )
+	{
+		case "sphere":
+		{
+			text    -edit -label "Radius" -manage  true -enable  $bEnable $float1Text;
+			control -edit -manage  true -enable $bEnable $float1;
+			control -edit -manage  false -enable false $float2Text;
+			control -edit -manage  false -enable false $float2;
+			control -edit -manage  false -enable false $float3Text;
+			control -edit -manage  false -enable false $float3;
+			
+			if ( $bEnable )
+			{
+				string $radii[];
+				for ( $joint in $selection )
+				{
+					string $polyShape = mpJointGetRigidBodyPolyShape( $joint );
+					$radii[size($radii)] = $polyShape + ".radius";
+				}
+				
+				connectControl $float1 $radii;
+			}
+		}
+		break;
+		
+		case "box":
+		{
+			text    -edit -label "Width" -manage  true -enable  $bEnable $float1Text;
+			control -edit -manage  true -enable $bEnable $float1;
+			text    -edit -label "Height" -manage  true -enable  $bEnable $float2Text;
+			control -edit -manage  true -enable $bEnable $float2;
+			text    -edit -label "Depth" -manage  true -enable  $bEnable $float3Text;
+			control -edit -manage  true -enable $bEnable $float3;
+			
+			if ( $bEnable )
+			{
+				string $widths[];
+				string $heights[];
+				string $depths[];
+				for ( $joint in $selection )
+				{
+					string $polyShape = mpJointGetRigidBodyPolyShape( $joint );
+					$widths[size($widths)] = $polyShape + ".width";
+					$heights[size($heights)] = $polyShape + ".height";
+					$depths[size($depths)] = $polyShape + ".depth";
+				}
+				
+				connectControl $float1 $widths;
+				connectControl $float2 $heights;
+				connectControl $float3 $depths;
+			}
+		}
+		break;
+		
+		case "capsule":
+		{
+			text    -edit -label "Radius" -manage  true -enable  $bEnable $float1Text;
+			control -edit -manage  true -enable $bEnable $float1;
+			text    -edit -label "Height" -manage  true -enable  $bEnable $float2Text;
+			control -edit -manage  true -enable $bEnable $float2;
+			control -edit -manage  false -enable false $float3Text;
+			control -edit -manage  false -enable false $float3;
+			
+			if ( $bEnable )
+			{
+				string $radii[];
+				string $heights[];
+				for ( $joint in $selection )
+				{
+					string $polyShape = mpJointGetRigidBodyPolyShape( $joint );
+					$radii[size($radii)] = $polyShape + ".radius";
+					$heights[size($heights)] = $polyShape + ".height";
+				}
+				
+				connectControl $float1 $radii;
+				connectControl $float2 $heights;
+			}
+		}
+		break;
+		
+		default:
+		{
+			control -edit -manage  false -enable false $float1Text;
+			control -edit -manage  false -enable false $float1;
+			control -edit -manage  false -enable false $float2Text;
+			control -edit -manage  false -enable false $float2;
+			control -edit -manage  false -enable false $float3Text;
+			control -edit -manage  false -enable false $float3;
+		}
+		break;
+	}
+}
+
+//--------------------------------------------------------------------------------------------
+/** @author Jeff Cotton
+ *  @date   10/01/2004
+ *  @param  $parentUI - parent UI of the joint properties ui we want to operate on
+ *  @brief  Delete the Properties Shape UI if it exists on this parent
+ */
+global proc mpUITabPhysicsTabPropertiesShapeDynamicDelete( string $parentUI )
+{
+	string $controlPath = $parentUI + "|Dynamic";
+	
+	if ( `frameLayout -exists $controlPath` )
+	{
+		deleteUI $controlPath;
+	}
+}
+
+//--------------------------------------------------------------------------------------------
+/** @author Jeff Cotton
+ *  @date   10/01/2004
+ *  @param  $parentUI - parent UI of the joint properties ui we want to operate on
+ *  @return full ELF path to the newly createUI (this is a framelayout)
+ *  @brief  Create the properties Shape UI the parent must already be set up
+ */
+global proc string mpUITabPhysicsTabPropertiesShapeDynamicCreate( string $getSelectionCallback )
+{
+	string $parentUI = `setParent -query`;
+	
+	mpUITabPhysicsTabPropertiesShapeDynamicDelete( $parentUI );
+	
+	string $layout = `formLayout -numberOfDivisions 100 "Dynamic"`;
+	{
+		mpUIEmbedUpdateCommand( "mpUITabPhysicsTabPropertiesShapeDynamicUpdate( \"" + $parentUI + "\", \"" + encodeString( $getSelectionCallback ) + "\" )" );
+		
+		string $float1Text = `text -label   "Width"
+		                           -manage  false
+		                           -enable  false
+		                           -align   "left"
+		                           Float1Text`;
+		
+		string $float1 = `floatSliderGrp -enable           false
+		                                 -manage           false
+		                                 -field            true
+		                                 -columnWidth      1 60
+		                                 -adjustableColumn 2
+		                                 -min              0
+		                                 -max              100
+		                                 -fieldMinValue    0
+		                                 -fieldMaxValue    100000
+		                                 Float1`;
+		
+		string $float2Text = `text -label   "Height"
+		                           -manage  false
+		                           -enable  false
+		                           -align   "left"
+		                           Float2Text`;
+		
+		string $float2 = `floatSliderGrp -enable           false
+		                                 -manage           false
+		                                 -field            true
+		                                 -columnWidth      1 60
+		                                 -adjustableColumn 2
+		                                 -min              0
+		                                 -max              100
+		                                 -fieldMinValue    0
+		                                 -fieldMaxValue    100000
+		                                 Float2`;
+		
+		string $float3Text = `text -label   "Depth"
+		                           -manage  false
+		                           -enable  false
+		                           -align   "left"
+		                           Float3Text`;
+		
+		string $float3 = `floatSliderGrp -enable           false
+		                                 -manage           false
+		                                 -field            true
+		                                 -columnWidth      1 60
+		                                 -adjustableColumn 2
+		                                 -min              0
+		                                 -max              100
+		                                 -fieldMinValue    0
+		                                 -fieldMaxValue    100000
+		                                 Float3`;
+		
+		formLayout -edit -attachForm    $float1Text  "top"    0
+		                 -attachForm    $float1Text  "left"   0
+		                 -attachNone    $float1Text  "bottom"
+		                 -attachForm    $float1Text  "right"  0
+		                 
+		                 -attachControl $float1      "top"    5 $float1Text
+		                 -attachForm    $float1      "left"   0
+		                 -attachNone    $float1      "bottom"
+		                 -attachForm    $float1      "right"  0
+		                 
+		                 -attachControl $float2Text  "top"    5 $float1
+		                 -attachForm    $float2Text  "left"   0
+		                 -attachNone    $float2Text  "bottom"
+		                 -attachForm    $float2Text  "right"  0
+		                 
+		                 -attachControl $float2      "top"    5 $float2Text
+		                 -attachForm    $float2      "left"   0
+		                 -attachNone    $float2      "bottom"
+		                 -attachForm    $float2      "right"  0
+		                 
+		                 -attachControl $float3Text  "top"    5 $float2
+		                 -attachForm    $float3Text  "left"   0
+		                 -attachNone    $float3Text  "bottom"
+		                 -attachForm    $float3Text  "right"  0
+		                 
+		                 -attachControl $float3      "top"    5 $float3Text
+		                 -attachForm    $float3      "left"   0
+		                 -attachNone    $float3      "bottom"
+		                 -attachForm    $float3      "right"  0
+		                 
+		                 $layout;
+	}
+	setParent ..;
+	
+	mpUITabPhysicsTabPropertiesShapeDynamicUpdate( $parentUI, $getSelectionCallback );
+	
+	return $layout;
+}
+
+//--------------------------------------------------------------------------------------------
+/** @author Jeff Cotton
+ *  @date   10/01/2004
+ *  @param  $newValue - the new value selected in the optionMenu
+ *  @brief  sets the value of the attribute to the new value selected in the optionMenu
+ */
+global proc mpUITabPhysicsTabPropertiesShapeTypeChangedCommand( string $parentUI,
+                                                                string $getSelectionCallback,
+                                                                string $newValue )
+{
+	string $controlPath = $parentUI + "|Type";
+	
+	if ( "Mixed" != $newValue || "Unsupported" != $newValue || "None" != $newValue )
+	{
+		string $menuItems[] = `optionMenu -query -itemListLong $controlPath`;
+		
+		for ( $menuItem in $menuItems )
+		{
+			deleteUI $menuItem;
+		}
+		
+		menuItem -parent $controlPath "Sphere";
+		menuItem -parent $controlPath "Box";
+		menuItem -parent $controlPath "Capsule";
+		
+		string $selection[];
+		
+		if ( "" != $getSelectionCallback )
+		{
+			$selection = eval( $getSelectionCallback );
+		}
+		else
+		{
+			warning( "Shape UI will not function correctly without a selection Callback" );
+		}
+		
+		for ( $joint in $selection )
+		{
+			catch( mpJointCreateRigidBody( $joint, $newValue, false, false ) );
+		}
+	}
+	
+	optionMenu -edit -value $newValue $controlPath;
+	
+	mpUITabPhysicsTabPropertiesShapeDynamicUpdate( $parentUI, $getSelectionCallback );
+}
+
+//--------------------------------------------------------------------------------------------
+/** @author Jeff Cotton
+ *  @date   10/01/2004
+ *  @param  $parentUI - parent UI of the joint properties ui we want to operate on
+ *  @brief  Update the UI with new values from external UI. (the selection in the joint list)
+ */
+global proc mpUITabPhysicsTabPropertiesShapeUpdate( string $parentUI, string $getSelectionCallback )
+{
+	string $controlPath = $parentUI + "|Shape";
+	
+	// if we haven't created the UI yet then create it.
+	if ( !`layout -exists $controlPath` )
+	{
+		$oldParentUI = `setParent -query`;
+		
+		setParent $parentUI;
+		{
+			mpUITabPhysicsTabPropertiesShapeCreate( $getSelectionCallback );
+		}
+		setParent $oldParentUI;
+	}
+	
+	string $basePath         = $controlPath;
+	string $type             = $basePath + "|Type";
+	string $typeText         = $type + "Text";
+	string $massPercent      = $basePath + "|MassPercent";
+	string $massPercentText  = $massPercent + "Text";
+	string $densityScale     = $basePath + "|DensityScale";
+	string $densityScaleText = $densityScale + "Text";
+	string $normalizeButton = $basePath + "|Normalize";
+	string $selection[];
+	
+	if ( "" != $getSelectionCallback )
+	{
+		$selection = eval( $getSelectionCallback );
+	}
+	else
+	{
+		warning( "Shape UI will not function correctly without a selection Callback" );
+	}
+	
+	int $bEnable = ( 0 == size( $selection ) ? false : true );
+	
+	for ( $joint in $selection )
+	{
+		$bEnable = $bEnable && ( "" != mpJointGetRigidBodyPrimitive( $joint ) );
+	}
+	
+	control -edit -enable $bEnable $type;
+	control -edit -enable $bEnable $typeText;
+	control -edit -enable $bEnable $massPercent;
+	control -edit -enable $bEnable $massPercentText;
+	control -edit -enable $bEnable $densityScale;
+	control -edit -enable $bEnable $densityScaleText;
+	control -edit -enable $bEnable $normalizeButton;
+	
+	if ( $bEnable )
+	{
+		string $typeName;
+		
+		string $massPercents[];
+		string $densityScales[];
+		for ( $joint in $selection ) 
+		{
+			string $rigidBodyPrimitive = mpJointGetRigidBodyPrimitive( $joint );
+			string $currentTypeName    = mpGetPhysicsShapeType( $rigidBodyPrimitive, true );;
+			
+			if ( "" == $typeName )
+			{
+				$typeName = $currentTypeName;
+			}
+			
+			if ( $typeName != $currentTypeName )
+			{
+				$typeName = "Mixed";
+			}
+			
+			$massPercents[size( $massPercents )] = ( $rigidBodyPrimitive + ".mpMassPercent" );
+			$densityScales[size( $densityScales )] = ( $rigidBodyPrimitive + ".mpDensityScale" );
+		}
+		connectControl $massPercent $massPercents;
+		connectControl $densityScale $densityScales;
+		
+		string $menuItems[] = `optionMenu -query -itemListLong $type`;
+		
+		for ( $menuItem in $menuItems )
+		{
+			deleteUI $menuItem;
+		}
+		
+		menuItem -parent $type "Sphere";
+		menuItem -parent $type "Box";
+		menuItem -parent $type "Capsule";
+		
+		if ( "Mixed" == $typeName )
+		{
+			menuItem -parent $type $typeName;
+		}
+		else if ( "Unsupported"  == $typeName )
+		{
+			menuItem -parent $type $typeName;
+		}
+		
+		//~ print( "TypeName\n" );
+		//~ print( $typeName );
+		//~ print( "\n" );
+		
+		// select the correct node
+		optionMenu -edit -value $typeName $type;
+	}
+	
+	mpUITabPhysicsTabPropertiesShapeDynamicUpdate( $basePath, $getSelectionCallback );
+}
+
+//--------------------------------------------------------------------------------------------
+/** @author Jeff Cotton
+ *  @date   10/01/2004
+ *  @param  $parentUI - parent UI of the joint properties ui we want to operate on
+ *  @brief  Delete the Properties Shape UI if it exists on this parent
+ */
+global proc mpUITabPhysicsTabPropertiesShapeDelete( string $parentUI )
+{
+	string $controlPath = $parentUI + "|Shape";
+	
+	if ( `frameLayout -exists $controlPath` )
+	{
+		deleteUI $controlPath;
+	}
+}
+
+//--------------------------------------------------------------------------------------------
+/** @author Jeff Cotton
+ *  @date   10/01/2004
+ *  @param  $parentUI - parent UI of the joint properties ui we want to operate on
+ *  @return full ELF path to the newly createUI (this is a framelayout)
+ *  @brief  Create the properties Shape UI the parent must already be set up
+ */
+global proc string mpUITabPhysicsTabPropertiesShapeCreate( string $getSelectionCallback )
+{
+	string $parentUI = `setParent -query`;
+	
+	mpUITabPhysicsTabPropertiesShapeDelete( $parentUI );
+	
+	string $layout = `formLayout -numberOfDivisions 100 "Shape"`;
+	{
+		mpUIEmbedUpdateCommand( "mpUITabPhysicsTabPropertiesShapeUpdate( \"" + $parentUI + "\", \"" + encodeString( $getSelectionCallback ) + "\" )" );
+		
+		string $typeText = `text -label  "Type"
+		                         -enable false
+		                         -align  "left"
+		                         TypeText`;
+		
+		string $changeCommand = "mpUITabPhysicsTabPropertiesShapeTypeChangedCommand( \"" + $layout + "\", \"" + encodeString( $getSelectionCallback ) + "\", `optionMenu -query -value \"" + ( $layout + "|Type" ) + "\"` );";
+		string $type = `optionMenu -enable           false
+		                           -changeCommand    $changeCommand
+		                           -width            600
+		                           Type`;
+		{
+			menuItem -label "Sphere";
+			menuItem -label "Box";
+			menuItem -label "Capsule";
+		}
+		setParent -menu ..;
+		
+		string $massPercentText = `text -label  "Mass Percent (0.0 to 1.0)"
+		                                -enable false
+		                                -align  "left"
+		                                MassPercentText`;
+		
+		string $massPercent = `floatSliderGrp -enable           false
+		                                      -field            true
+		                                      -columnWidth      1 60
+		                                      -adjustableColumn 2
+		                                      -min              0
+		                                      -max              1
+		                                      -fieldMinValue    0
+		                                      -fieldMaxValue    1
+		                                      -step             0.0001
+		                                      MassPercent`;
+		
+		string $densityScaleText = `text -label  "Density Scale (multiplier)"
+		                                 -enable false
+		                                 -align  "left"
+		                                 DensityScaleText`;
+		
+		string $densityScale = `floatSliderGrp -enable           false
+		                                       -field            true
+		                                       -columnWidth      1 60
+		                                       -adjustableColumn 2
+		                                       -min              0
+		                                       -max              10
+		                                       -fieldMinValue    0
+		                                       -fieldMaxValue    100000
+		                                       DensityScale`;
+		
+		string $dynamic = mpUITabPhysicsTabPropertiesShapeDynamicCreate( $getSelectionCallback );
+		
+		string $normalizeButton = `button -enable  false
+		                                  -label   "Normalize All Mass Percents"
+		                                  -command "mpNormalizeMassPercents( true )"
+		                                  Normalize`;
+		
+		formLayout -edit -attachForm    $typeText         "top"    5
+		                 -attachForm    $typeText         "left"   5
+		                 -attachNone    $typeText         "bottom"
+		                 -attachForm    $typeText         "right"  5
+		                 
+		                 -attachControl $type             "top"    5 $typeText
+		                 -attachForm    $type             "left"   5
+		                 -attachNone    $type             "bottom"
+		                 -attachForm    $type             "right"  5
+		                 
+		                 -attachControl $massPercentText  "top"    5 $type
+		                 -attachForm    $massPercentText  "left"   5
+		                 -attachNone    $massPercentText  "bottom"
+		                 -attachForm    $massPercentText  "right"  5
+		                 
+		                 -attachControl $massPercent      "top"    5 $massPercentText
+		                 -attachForm    $massPercent      "left"   5
+		                 -attachNone    $massPercent      "bottom"
+		                 -attachForm    $massPercent      "right"  5
+		                 
+		                 -attachControl $densityScaleText "top"    5 $massPercent
+		                 -attachForm    $densityScaleText "left"   5
+		                 -attachNone    $densityScaleText "bottom"
+		                 -attachForm    $densityScaleText "right"  5
+		                 
+		                 -attachControl $densityScale     "top"    5 $densityScaleText
+		                 -attachForm    $densityScale     "left"   5
+		                 -attachNone    $densityScale     "bottom"
+		                 -attachForm    $densityScale     "right"  5
+		                 
+		                 -attachNone    $normalizeButton "top"    
+		                 -attachForm    $normalizeButton "left"    5
+		                 -attachForm    $normalizeButton "bottom"  5
+		                 -attachForm    $normalizeButton "right"   5
+		                 
+		                 -attachControl $dynamic          "top"    5 $densityScale
+		                 -attachForm    $dynamic          "left"   5
+		                 -attachControl $dynamic          "bottom" 5 $normalizeButton
+		                 -attachForm    $dynamic          "right"  5
+		                 
+		                 $layout;
+	}
+	setParent ..;
+	
+	mpUITabPhysicsTabPropertiesShapeUpdate( $parentUI, $getSelectionCallback );
+	
+	return $layout;
+}
+
+//--------------------------------------------------------------------------------------------
+/** @author Jeff Cotton
+ *  @date   10/01/2004
+ *  @param  $bShow - true if the physics shapes should be shown
+ *  @brief  show or hide the selected physics shapes
+ */
+global proc mpUITabPhysicsTabPropertiesOperationsShowCommand( string $parentUI,
+                                                              string $getSelectionCallback,
+                                                              int    $bShow )
+{
+	string $selection[];
+	
+	if ( "" != $getSelectionCallback )
+	{
+		$selection = eval( $getSelectionCallback );
+	}
+	else
+	{
+		warning( "ShowHide Operation will not function correctly without a selection Callback" );
+	}
+	
+	for ( $joint in $selection )
+	{
+		string $rigidBodyMesh = mpJointGetRigidBodyMesh( $joint );
+		if ( "" != $rigidBodyMesh )
+		{
+			setAttr ( $rigidBodyMesh + ".visibility" ) $bShow;
+		}
+	}
+	
+	string $showhideButton = $parentUI + "|ShowHideButton";
+	string $command = "mpUITabPhysicsTabPropertiesOperationsShowCommand( \"" + $parentUI + "\", \"" + encodeString( $getSelectionCallback ) + "\", " + !$bShow + ");";
+	string $label   = ( $bShow ? "Hide": "Show" );
+	
+	button -edit -width 40 -label $label -command $command $showhideButton;
+}
+
+//--------------------------------------------------------------------------------------------
+/** @author Jeff Cotton
+ *  @date   10/01/2004
+ *  @param  $parentUI - parent UI of the joint properties ui we want to operate on
+ *  @brief  Update the UI with new values from external UI. (the selection in the joint list)
+ */
+global proc mpUITabPhysicsTabPropertiesOperationsUpdate( string $parentUI, string $getSelectionCallback )
+{
+	string $controlPath = $parentUI + "|Operations";
+	
+	// if we haven't created the UI yet then create it.
+	if ( !`layout -exists $controlPath` )
+	{
+		$oldParentUI = `setParent -query`;
+		
+		setParent $parentUI;
+		{
+			mpUITabPhysicsTabPropertiesOperationsCreate( $getSelectionCallback );
+		}
+		setParent $oldParentUI;
+	}
+	
+	string $basePath          = $controlPath;
+	string $showhideButton    = $basePath + "|ShowHideButton";
+	string $createRigidBodies = $basePath + "|CreateRigidBodies";
+	string $createConstraints = $basePath + "|CreateConstraints";
+	
+	string $selection[];
+	
+	if ( "" != $getSelectionCallback )
+	{
+		$selection = eval( $getSelectionCallback );
+	}
+	else
+	{
+		warning( "Operations UI will not function correctly without a selection Callback" );
+	}
+	
+	string $rootJoint = mpGetRootJoint( false, true );
+	int $bCanCreateDefaults = ( "" == $rootJoint ? false : true );
+	int $bEnable = false;
+	
+	for ( $joint in $selection )
+	{
+		$bEnable = $bEnable || ( "" != mpJointGetRigidBodyMesh( $joint ) );
+	}
+	
+	control -edit -enable $bEnable $showhideButton;
+	control -edit -enable $bCanCreateDefaults $createRigidBodies;
+	control -edit -enable $bCanCreateDefaults $createConstraints;
+	
+	if ( $bEnable )
+	{
+		int $bShow = true;
+		
+		for ( $joint in $selection )
+		{
+			string $rigidBodyMesh = mpJointGetRigidBodyMesh( $joint );
+			if ( "" != $rigidBodyMesh )
+			{
+				$bShow = $bShow && ( false == getAttr ( $rigidBodyMesh + ".visibility" ) );
+			}
+		}
+		
+		string $command = "mpUITabPhysicsTabPropertiesOperationsShowCommand( \"" + $basePath + "\", \"" + encodeString( $getSelectionCallback ) + "\", " + $bShow + ");";
+		string $label   = ( $bShow ? "Show": "Hide" );
+		
+		button -edit -width 40 -label $label -command $command $showhideButton;
+	}
+}
+
+//--------------------------------------------------------------------------------------------
+/** @author Jeff Cotton
+ *  @date   10/01/2004
+ *  @param  $parentUI - parent UI of the joint properties ui we want to operate on
+ *  @brief  Delete the Properties Operations UI if it exists on this parent
+ */
+global proc mpUITabPhysicsTabPropertiesOperationsDelete( string $parentUI )
+{
+	string $controlPath = $parentUI + "|Operations";
+	
+	if ( `frameLayout -exists $controlPath` )
+	{
+		deleteUI $controlPath;
+	}
+}
+
+//--------------------------------------------------------------------------------------------
+/** @author Jeff Cotton
+ *  @date   10/01/2004
+ *  @param  $parentUI - parent UI of the joint properties ui we want to operate on
+ *  @return full ELF path to the newly createUI (this is a formLayout)
+ *  @brief  Create the properties Operations UI the parent must already be set up
+ */
+global proc string mpUITabPhysicsTabPropertiesOperationsCreate( string $getSelectionCallback )
+{
+	string $parentUI = `setParent -query`;
+	
+	mpUITabPhysicsTabPropertiesOperationsDelete( $parentUI );
+	
+	string $layout = `formLayout -numberOfDivisions 100 "Operations"`;
+	{
+		mpUIEmbedUpdateCommand( "mpUITabPhysicsTabPropertiesOperationsUpdate( \"" + $parentUI + "\", \"" + encodeString( $getSelectionCallback ) + "\" )" );
+		
+		string $command = "mpUITabPhysicsTabOperationsShowCommand( \"" + $layout + "\", \"" + encodeString( $getSelectionCallback ) + "\", true );";
+		string $label   = "Show";
+		string $showhideButton = `button -label   $label
+		                                 -enable  false
+		                                 -align   "center"
+		                                 -width   40
+		                                 -command $command
+		                                 ShowHideButton`;
+		
+		string $createRigidBodiesButton = `button -label   "Default RigidBodies"
+		                                          -enable  true
+		                                          -align   "center"
+		                                          -command "catch( mpCreateDefaultRigidBodies( false ) )"
+		                                          CreateRigidBodies`;
+		
+		string $createConstraintsButton = `button -label   "Default Constraints"
+		                                          -enable  true
+		                                          -align   "center"
+		                                          -command "catch( mpCreateDefaultRigidBodyConstraints( false ) )"
+		                                          CreateConstraints`;
+		
+		formLayout -edit -attachForm $showhideButton "top"    5
+		                 -attachForm $showhideButton "left"   5
+		                 -attachForm $showhideButton "bottom" 5
+		                 -attachNone $showhideButton "right"  
+		                 
+		                 -attachForm    $createRigidBodiesButton "top"    5
+		                 -attachControl $createRigidBodiesButton "left"   5 $showhideButton
+		                 -attachForm    $createRigidBodiesButton "bottom" 5
+		                 -attachNone    $createRigidBodiesButton "right"  
+		                 
+		                 -attachForm    $createConstraintsButton "top"    5
+		                 -attachControl $createConstraintsButton "left"   5 $createRigidBodiesButton
+		                 -attachForm    $createConstraintsButton "bottom" 5
+		                 -attachNone    $createConstraintsButton "right"  
+		                 
+		                 $layout;
+	}
+	setParent ..;
+	
+	mpUITabPhysicsTabPropertiesOperationsUpdate( $parentUI, $getSelectionCallback );
+	
+	return $layout;
+}
+
+//--------------------------------------------------------------------------------------------
+/** @author Jeff Cotton
+ *  @date   10/03/2004
+ *  @param  $parentUI - parent UI of the properties UI we want to operate on
+ *  @brief  before we show a new tab update it's UI
+ */
+global proc mpUITabPhysicsTabPropertiesTabsPreSelectionChangeCommand( string $parentUI )
+{
+	string $basePath    = $parentUI + "|Properties";
+	string $tabsUI      = $basePath + "|Tabs";
+	string $selectedTab = $tabsUI + "|" + `tabLayout -query -selectTab $tabsUI`;
+	
+	mpUIUpdate( $selectedTab );
+}
+
+//--------------------------------------------------------------------------------------------
+/** @author Jeff Cotton
+ *  @date   10/03/2004
+ *  @param  $parentUI - parent UI of the properties UI we want to operate on
+ *  @brief  when the selection in the joint list changes update dependant UI
+ */
+global proc mpUITabPhysicsTabPropertiesSelectionChangedCallBack( string $parentUI )
+{
+	string $basePath             = $parentUI + "|Properties";
+	string $listUI               = $basePath + "|List";
+	string $tabsUI               = $basePath + "|Tabs";
+	string $operationsUI         = $basePath + "|Operations";
+	string $getSelectionCallback = "mpUITabPhysicsJointListGetSelection( \"" + $listUI + "\" )";
+	string $selectedTab          = $tabsUI + "|" + `tabLayout -query -selectTab $tabsUI`;
+	
+	if ( "Model" != `tabLayout -query -selectTab $tabsUI` )
+	{
+		mpUIUpdate( $selectedTab );
+	}
+	
+	mpUITabPhysicsTabPropertiesOperationsUpdate( $operationsUI, $getSelectionCallback );
+}
+
+
+//--------------------------------------------------------------------------------------------
+/** @author Jeff Cotton
+ *  @date   10/03/2004
+ *  @param  $parentUI - parent UI of the properties UI we want to operate on
+ *  @brief  when a selection in the joint list is activated (doubleclicked) switch to the
+ *           shape Tab
+ */
+global proc mpUITabPhysicsTabPropertiesActivateCallBack( string $parentUI )
+{
+	string $basePath             = $parentUI + "|Properties";
+	string $listUI               = $basePath + "|List";
+	string $tabsUI               = $basePath + "|Tabs";
+	string $getSelectionCallback = "mpUITabPhysicsJointListGetSelection( \"" + $listUI + "\" )";
+	string $shapeTab             = $tabsUI + "|Shape";
+	
+	mpUIUpdate( $shapeTab );
+	tabLayout -edit -selectTab "Shape" $tabsUI;
+}
+
+
+//--------------------------------------------------------------------------------------------
+/** @author Jeff Cotton
+ *  @date   10/03/2004
+ *  @param  $parentUI - parent UI of the properties UI we want to operate on
+ *  @brief  update all the child UI of the properties UI
+ */
+global proc mpUITabPhysicsTabPropertiesUpdate( string $parentUI )
+{
+	string $basePath             = $parentUI + "|Properties";
+	string $listUI               = $basePath + "|List";
+	string $tabsUI               = $basePath + "|Tabs";
+	string $operationsUI         = $basePath + "|Operations";
+	string $getSelectionCallback = "mpUITabPhysicsJointListGetSelection( \"" + $listUI + "\" )";
+	string $selectedTab = $tabsUI + "|" + `tabLayout -query -selectTab $tabsUI`;
+	
+	mpUIUpdate( $selectedTab );
+	mpUITabPhysicsJointListUpdate( $listUI );
+	mpUITabPhysicsTabPropertiesOperationsUpdate( $operationsUI, $getSelectionCallback );
+}
+
+//--------------------------------------------------------------------------------------------
+/** @author Jeff Cotton
+ *  @date   10/01/2004
+ *  @param  $parentUI - parent UI of the joint properties ui we want to operate on
+ *  @brief  Delete the Properties UI if it exists on this parent
+ */
+global proc mpUITabPhysicsTabPropertiesDelete( string $parentUI )
+{
+	string $controlPath = $parentUI + "|Properties";
+	
+	if ( `frameLayout -exists $controlPath` )
+	{
+		deleteUI $controlPath;
+	}
+}
+
+//--------------------------------------------------------------------------------------------
+/** @author Jeff Cotton
+ *  @date   10/03/2004
+ *  @return full ELF path to the newly createUI (this is a formLayout)
+ *  @brief  Create the properties tab. The parent must already be set up
+ */
+global proc string mpUITabPhysicsTabPropertiesCreate()
+{
+	string $parentUI = `setParent -query`;
+	
+	mpUITabPhysicsTabPropertiesDelete( $parentUI );
+	
+	string $layout = `formLayout -numberOfDivisions 100 Properties`;
+	{
+		mpUIEmbedUpdateCommand( "mpUITabPhysicsTabPropertiesUpdate( \"" + $parentUI + "\" )" );
+		
+		string $jointListFrame = `frameLayout -label        "Joints"
+		                                      -marginHeight 5
+		                                      -marginWidth  5
+		                                      -collapsable  false
+		                                       List`;
+		{
+			mpUITabPhysicsJointListCreate( "mpUITabPhysicsTabPropertiesSelectionChangedCallBack( \"" + $parentUI + "\" );", "mpUITabPhysicsTabPropertiesActivateCallBack( \"" + $parentUI + "\" );" );
+		}
+		setParent ..;
+		
+		string $getSelectionCallback = "mpUITabPhysicsJointListGetSelection( \"" + $jointListFrame + "\" )";
+		
+		string $operationsFrame = `frameLayout -label         "Operations"
+		                                       -labelVisible  false 
+		                                       -borderVisible false 
+		                                       -marginHeight  2
+		                                       -marginWidth   2
+		                                       -collapsable   false
+		                                       Operations`;
+		{
+			mpUITabPhysicsTabPropertiesOperationsCreate( $getSelectionCallback );
+		}
+		setParent ..;
+		
+		string $propertyTabs = `tabLayout -innerMarginWidth  5
+		                                  -innerMarginHeight 5
+		                                  -preSelectCommand  ( "mpUITabPhysicsTabPropertiesTabsPreSelectionChangeCommand( \"" + $parentUI + "\" );" )
+		                                  Tabs`;
+		{
+			mpUITabPhysicsTabPropertiesModelCreate();
+			mpUITabPhysicsTabPropertiesJointCreate( $getSelectionCallback );
+			mpUITabPhysicsTabPropertiesShapeCreate( $getSelectionCallback );
+		}
+		setParent ..;
+		
+		formLayout -edit -attachNone     $operationsFrame "top"    
+		                 -attachForm     $operationsFrame "left"   0
+		                 -attachForm     $operationsFrame "bottom" 0
+		                 -attachForm     $operationsFrame "right"  0 
+		                 
+		                 -attachForm     $propertyTabs    "top"    5
+		                 -attachPosition $propertyTabs    "left"   0 45
+		                 -attachControl  $propertyTabs    "bottom" 0 $operationsFrame
+		                 -attachForm     $propertyTabs    "right"  5
+		                 
+		                 -attachForm     $jointListFrame  "top"    5
+		                 -attachForm     $jointListFrame  "left"   5
+		                 -attachControl  $jointListFrame  "bottom" 0 $operationsFrame
+		                 -attachControl  $jointListFrame  "right"  5 $propertyTabs
+		                 
+		                 $layout;
+	}
+	setParent ..;
+	
+	mpUITabPhysicsTabPropertiesUpdate( $parentUI );
+	
+	return $layout;
+}

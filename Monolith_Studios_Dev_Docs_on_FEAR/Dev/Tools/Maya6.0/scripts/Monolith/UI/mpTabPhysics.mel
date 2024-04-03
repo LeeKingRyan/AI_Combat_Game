@@ -1,0 +1,1334 @@
+//--------------------------------------------------------------------------------------------
+/** @file   Monolith/UI/mpTabPhysics.mel
+ *  @date   09/27/2004
+ *
+ * (c) 1997-2004 Monolith Productions, Inc.  All Rights Reserved
+ */
+//--------------------------------------------------------------------------------------------
+
+source "monolith/mpModelImport.mel";
+source "monolith/mpModelExport.mel";
+source "monolith/UI/mpTabbedPanel.mel";
+source "monolith/UI/mpTabMain.mel";
+source "monolith/UI/mpNodeList.mel";
+source "monolith/UI/mpUtility.mel";
+source "monolith/UI/mpTabPhysicsTabWeightsets.mel";
+source "monolith/UI/mpTabPhysicsTabProperties.mel";
+source "monolith/UI/mpTabPhysicsTabConstraints.mel";
+
+global string $mpUITabPhysicsName = "TabPhysics";
+
+//--------------------------------------------------------------------------------------------
+/** @author Jeff Cotton
+ *  @date   10/04/2004
+ *  @param  $joint
+ *  @param  $type
+ *  @brief  
+ */
+global proc mpNormalizeMassPercents( int $bSilent )
+{
+	string $rootJoint = mpGetRootJoint( false, true );
+	string $joints[]  = mpGetJoints( $rootJoint, true );
+	string $rigidBodyPrims[];
+	float  $totalMassPercent = 0.0;
+	
+	for ( $joint in $joints )
+	{
+		string $rigidBodyPrim = mpJointGetRigidBodyPrimitive( $joint );
+		
+		if ( "" != $rigidBodyPrim )
+		{
+			$rigidBodyPrims[size( $rigidBodyPrims )] = $rigidBodyPrim;
+			$totalMassPercent += `getAttr ( $rigidBodyPrim + ".mpMassPercent" )`;
+		}
+	}
+	
+	if ( 0 != $totalMassPercent )
+	{
+		for ( $rigidBodyPrim in $rigidBodyPrims )
+		{
+			float $massPercent       = `getAttr ( $rigidBodyPrim + ".mpMassPercent" )`;
+			float $scaledMassPercent = $massPercent / $totalMassPercent;
+			
+			setAttr ( $rigidBodyPrim + ".mpMassPercent" ) $scaledMassPercent;
+		}
+	}
+}
+
+//--------------------------------------------------------------------------------------------
+/** @author Jeff Cotton
+ *  @date   10/04/2004
+ *  @param  $joint
+ *  @param  $type
+ *  @brief  
+ */
+global proc string[] mpJointCreateRigidBody( string $joint,
+                                             string $type,
+                                             int    $bSilent,
+                                             int    $deleteOldData )
+{
+	string $newRigidBody[];
+	string $oldRigidBody = mpJointGetRigidBody( $joint );
+	string $oldPolyShape = mpJointGetRigidBodyPolyShape( $joint );
+	
+	float  $boneLength     = mpJointGetBoneLength( $joint, $bSilent );
+	float  $halfBoneLength = $boneLength / 2.0;
+	
+	float $width  = $halfBoneLength;
+	float $height = $boneLength;
+	float $depth  = $halfBoneLength;
+	
+	// If we have an old rigid body the get it's scale to apply to then new polyshape
+	if ( "" != $oldRigidBody )
+	{
+		float $scaleX = `getAttr ( $oldRigidBody + ".scaleX" )`;
+		float $scaleY = `getAttr ( $oldRigidBody + ".scaleX" )`;
+		float $scaleZ = `getAttr ( $oldRigidBody + ".scaleX" )`;
+		
+		$width  = $width  * $scaleZ;
+		$height = $height * $scaleX;
+		$depth  = $depth  * $scaleY;
+		
+		setAttr ( $oldRigidBody + ".scaleX" ) 1.0;
+		setAttr ( $oldRigidBody + ".scaleX" ) 1.0;
+		setAttr ( $oldRigidBody + ".scaleX" ) 1.0;
+	}
+	
+	// If we have an old poly shape then get the dimensions of that poly shape
+	if ( "" != $oldPolyShape )
+	{
+		string $oldPolyShapeType = `nodeType $oldPolyShape`;
+		switch ( $oldPolyShapeType )
+		{
+			case "polySphere":
+			{
+				float $radius = `polySphere -query -radius $oldPolyShape`;
+				$width = $height = $depth = 2.0 * $radius;
+			}
+			break;
+			
+			case "polyCube":
+			{
+				$width  = `polyCube -query -width $oldPolyShape`;
+				$height = `polyCube -query -height $oldPolyShape`;
+				$depth  = `polyCube -query -depth $oldPolyShape`;
+			}
+			break;
+			
+			case "hkPolyCapsule":
+			{
+				float $radius = `getAttr ( $oldPolyShape + ".radius" )`;
+				$height = `getAttr ( $oldPolyShape + ".height" )`;
+				$height += 2 * $radius;
+				$width = $depth = 2 * $radius;
+			}
+			break;
+			
+			default:
+				warning( "Can't get attributes to copy from unsupported polyshape type - " + $oldPolyShapeType );
+		}
+		
+		delete $oldPolyShape;
+	}
+	
+	// Delete old Data
+	if ( $deleteOldData && "" != $oldRigidBody )
+	{
+		string $result = "Yes";
+		
+		$result = mpNotifyDialog( "Warning",
+		                          ( "RigidBody already exists on joint " + $joint ),
+		                          { "Replace", "Skip", "Duplicate", "Cancel" },
+		                          "Skip",
+		                          "Cancel",
+		                          ( "RigidBody already exists on joint " + $joint + ". Skipping creation" ),
+		                          $bSilent );
+		  
+		switch ( $result )
+		{
+			case "Replace": delete $oldRigidBody; $oldRigidBody = ""; break;
+			case "Skip": return {}; break;
+			case "Cancel": error( "mpJointCreateRigidBody: Operation Canceled by User" ); break;
+			case "Duplicate": break;
+		}
+	}
+	
+	string $outputMesh;
+	
+	switch ( `tolower $type` )
+	{
+		case "sphere":
+		{
+			float $halfHeight = $height / 2.0;
+			float $halfWidth  = $width / 2.0;
+			float $halfDepth  = $depth / 2.0;
+			float $radius = max( $halfHeight, max( $halfWidth, $halfDepth ) );
+			$newRigidBody = `polySphere -radius $radius`; 
+			$outputMesh = ".output";
+		}
+		break;
+		
+		case "capsule":
+		{
+			float $minDim = min( $depth, min( $width, $height ) ) / 2.0;
+			float $radius = max( 1.0, $minDim );
+			float $capsuleHeight = max ( 0.0, $height - ( 2 * $radius ) );
+			$newRigidBody[1] = `CreatePolyCapsule`; 
+			setAttr ( $newRigidBody[1] + ".radius" ) $radius;
+			setAttr ( $newRigidBody[1] + ".height" ) $capsuleHeight;
+			string $polyShapeTransform[] = `listConnections -type "mesh" $newRigidBody[1]`;
+			$newRigidBody[0] = $polyShapeTransform[0];
+			$outputMesh = ".outputMesh";
+		}
+		break;
+		
+		case "box":
+		{
+			$newRigidBody = `polyCube -width $width -height $height -depth $depth`; 
+			$outputMesh = ".output";
+		}
+		break;
+		
+		default:
+			error( "Can't create unsupported physics shape type - " + $type );
+	}
+	
+	if ( 2 <= size( $newRigidBody ) && "" != $newRigidBody[0] && "" != $newRigidBody[1] )
+	{
+		string $oldMesh = mpJointGetRigidBodyMesh( $joint );
+		
+		if ( "" != $oldMesh )
+		{
+			connectAttr -force ( $newRigidBody[1] + $outputMesh ) ( $oldMesh + ".inMesh" );
+			delete $newRigidBody[0];
+			$newRigidBody[0] = $oldRigidBody;
+		}
+		else
+		{
+			$newRigidBody[0] = `rename $newRigidBody[0] ( $joint + "_RigidBody" )`;
+			
+			rotate -absolute -objectSpace 0.0               0.0 -90deg $newRigidBody[0];
+			move   -absolute -localSpace  ( $height / 2.0 ) 0.0 0.0    $newRigidBody[0];
+			string $parentResult[] = `parent -relative $newRigidBody[0] $joint`;
+			$newRigidBody[0] = $parentResult[0];
+		}
+		
+		string $oldPrimitive = mpJointGetRigidBodyPrimitive( $joint );
+		
+		if ( "" != $oldPrimitive )
+		{
+			mpSetPhysicsShapeType( $type, $oldPrimitive, true );
+		}
+		else
+		{
+			string $oldEntity = mpJointGetRigidBodyEntity( $joint );
+			
+			if ( "" != $oldEntity )
+			{
+				delete $oldEntity;
+			}
+			
+			int    $idActiveRigidBodyCollection  = `hkGetActiveRigidBodyCollectionID`;
+			string $strActiveRigidBodyCollection = `hkGetRigidBodyCollection $idActiveRigidBodyCollection`;
+			
+			string $newRigidBodyEntity = hkCreateRigidBodyEntityFor( $newRigidBody[0],
+			                                                         $strActiveRigidBodyCollection, false, false );
+			string $newRigidBodyPrimitive[] = `listConnections -type hkRigidBodyPrimitive $newRigidBodyEntity`;
+			mpSetPhysicsShapeType( $type, $newRigidBodyPrimitive[0], true );
+		}
+	}
+	
+	return $newRigidBody;
+}
+
+//--------------------------------------------------------------------------------------------
+/** @author Jeff Cotton
+ *  @date   10/06/2004
+ *  @param  $jointA
+ *  @param  $jointB
+ *  @param  $type
+ *  @param  $bSilent
+ *  @brief  
+ */
+global proc string mpJointCreateConstraint( string $jointA,
+                                            string $jointB,
+                                            string $type,
+                                            int    $bSilent,
+                                            int    $deleteOldData )
+{
+	string $newConstraint;
+	
+	// Get the rigid body for the first joint
+	string $rigidBodyA = mpJointGetRigidBody( $jointA );
+	if ( "" == $rigidBodyA )
+	{
+		error ( "Can't create " + $type + " constraint, No rigid body found on " + $jointA );
+	}
+	
+	// Get the rigid body for the second joint
+	string $rigidBodyB = mpJointGetRigidBody( $jointB );
+	if ( "" == $rigidBodyA )
+	{
+		error ( "Can't create " + $type + " constraint, No rigid body found on " + $jointA );
+	}
+	
+	string $oldConstraint = mpJointGetConstraint( $jointA, $jointB );
+	
+	print( "Old Constraint\n" );
+	print ( $oldConstraint );
+	print ( "\n" );
+	
+	// Delete old Data
+	if ( $deleteOldData && "" != $oldConstraint )
+	{
+		string $result = mpNotifyDialog( "Warning",
+		                                 ( "Constraint already exists between " + $jointA + " and " + $jointB ),
+		                                 { "Replace", "Skip", "Duplicate", "Cancel" },
+		                                 "Skip",
+		                                 "Cancel",
+		                                 ( "Constraint already exists between " + $jointA + " and " + $jointB + ". Skipping creation" ),
+		                                 $bSilent );
+		  
+		switch ( $result )
+		{
+			case "Replace": delete $oldConstraint; $oldConstraint = ""; break;
+			case "Skip": return ""; break;
+			case "Cancel": error( "mpJointCreateConstraint: Operation Canceled by User" ); break;
+			case "Duplicate": break;
+		}
+	}
+	
+	// wittle away our current selection so we can restore it later.
+	//  The Havok functions internally select newly created stuff. 
+	string $oldSelection[] = `ls -selection`;
+	{
+		string $lowerCaseType = `tolower $type`;
+		
+		// select the rigid bodies
+		select $rigidBodyA $rigidBodyB;
+		
+		switch ( $lowerCaseType )
+		{
+			case "hinge":   hkCreateHingeConstraint; break;
+			case "ragdoll": hkCreateRagdollConstraint; break;
+			default: error( "Can't create unsupported constraint type " + $type );
+		}
+		
+		string $selection[] = `ls -selection`;
+		
+		if ( 1 < size( $selection ) )
+		{
+			warning( "Constraint selection has " + size( $selection ) + " nodes. Returning " + $selection[0]  );
+		}
+		
+		//~ print( "Selection After Constraint Creation\n" );
+		//~ print( $selection );
+		//~ print( "\n" );
+		
+		string $createdConstraint = $selection[0];
+		
+		if ( "" != $createdConstraint )
+		{
+			// set up some defaults on the constraint by type
+			switch ( $lowerCaseType )
+			{
+				case "hinge":
+				{
+					setAttr ( $createdConstraint + ".iconText" ) 0 ;
+					setAttr ( $createdConstraint + ".iconScale" ) 25;
+				}
+				break;
+				
+				case "ragdoll":
+				{
+					setAttr ( $createdConstraint + ".icon" ) 3 ;
+					setAttr ( $createdConstraint + ".iconText" ) 0 ;
+					setAttr ( $createdConstraint + ".iconScale" ) 100;
+				}
+				break;
+			}
+			
+			// the returned node is a shape node, wo we need to get its parent transform
+			string $createdConstraintTransform[] = `listRelatives -path -parent -type "transform" $createdConstraint`;
+			
+			if ( "" != $createdConstraintTransform[0] )
+			{
+				// havok incorrectly tries to center the new constraint. so
+				//  just get rid of havok's translation by moving to the object's origin
+				move -absolute -objectSpace 0 0 0 $createdConstraintTransform[0];
+				
+				// parent the new constraint to the first supplied joint
+				string $parentResult[] = `parent -relative $createdConstraintTransform[0] $jointA`;
+				
+				$parentResult[0] = `rename $parentResult[0] ( $jointA + "_" + $jointB + "_Constraint" )`;
+				
+				//~ print( "Parent Result\n" );
+				//~ print( $parentResult );
+				//~ print( "\n" );
+				
+				$newConstraint = $parentResult[0];
+			}
+		}
+	}
+	// restore the old selection;
+	select $oldSelection;
+	
+	return $newConstraint;
+}
+
+//--------------------------------------------------------------------------------------------
+/** @author ScottTech
+ *  @date   ??/??/????
+ *  @param  $bSilent
+ *  @brief  
+ */
+global proc string[] mpCreateDefaultRigidBodyConstraints( int $bSilent )
+{
+	string $newConstraints[];
+	string $rootJoint = mpGetRootJoint( false, $bSilent );
+	
+	if ( "" != $rootJoint )
+	{
+		// delete old data
+		{ 
+			string $oldConstraints[] = mpGetConstraints( $rootJoint, true );
+			
+			//~ print ( "OldConstraints\n" );
+			//~ print ( $oldConstraints );
+			//~ print ( "\n" );
+			
+			if ( 0 != size ( $oldConstraints ) )
+			{
+				$result = mpNotifyDialog( "Warning",
+				                          ( "Constraints already exists in skeleton " + $rootJoint + ". Replace?" ),
+				                          { "Yes", "No", "Individually", "Cancel" },
+				                          "No",
+				                          "Cancel",
+				                          ( "Not deleting existing constraints from Skeleton" + $rootJoint ),
+				                          $bSilent );
+				
+				if ( "Yes" == $result )
+				{
+					for ( $constraint in $oldConstraints )
+					{
+						if ( "" != $constraint )
+						{
+							delete $constraint;
+						}
+					}
+				}
+				else if ( "No" == $result )
+				{
+					$bSilent = true;
+				}
+				else if ( "Cancel" == $result )
+				{
+					error( "mpCreateDefaultRigidBodyConstraints: Operation Canceled by user" );
+				}
+			}
+		}
+		
+		string $selection[] = `ls -selection`;
+		{
+		//~ //
+		//~ //	set up appropriate (for now) default ragdoll/hinge constraints:
+		//~ //
+		//~ //		hinge for elbows and knees
+		//~ //		ragdoll for hips, shoulders, head, torso
+		//~ //
+		//~ //	This assumes (and probably will continue to assume) strict node naming conventions.
+		//~ //
+		//~ //	One at a time for now.....
+			
+			catch( $pelvisJoint        = mpUniquePath( $rootJoint, "Pelvis" ) );
+			catch( $upperTorsoJoint    = mpUniquePath( $rootJoint, "Upper_torso" ) );
+			catch( $upperLeftArmJoint  = mpUniquePath( $rootJoint, "Left_armu" ) );
+			catch( $lowerLeftArmJoint  = mpUniquePath( $rootJoint, "Left_arml" ) );
+			catch( $upperRightArmJoint = mpUniquePath( $rootJoint, "Right_armu" ) );
+			catch( $lowerRightArmJoint = mpUniquePath( $rootJoint, "Right_arml" ) );
+			catch( $upperLeftLegJoint  = mpUniquePath( $rootJoint, "Left_legu" ) );
+			catch( $lowerLeftLegJoint  = mpUniquePath( $rootJoint, "Left_legl" ) );
+			catch( $upperRightLegJoint = mpUniquePath( $rootJoint, "Right_legu" ) );
+			catch( $lowerRightLegJoint = mpUniquePath( $rootJoint, "Right_legl" ) );
+			catch( $headJoint          = mpUniquePath( $rootJoint, "Head" ) );
+			
+			// elbow of left arm
+			if ( "" != $lowerLeftArmJoint && "" != $upperLeftArmJoint )
+			{
+				string $newConstraint = mpLongName( mpJointCreateConstraint( $lowerLeftArmJoint, $upperLeftArmJoint, "Hinge", $bSilent, true ) );
+				
+				if ( "" != $newConstraint )
+				{
+					$newConstraints[size( $newConstraints )] = $newConstraint;
+					setAttr ( $newConstraint + ".range" ) 135;
+					setAttr ( $newConstraint + ".maxLimitAngleA" ) 100;
+					setAttr ( $newConstraint + ".isLimited" ) 1;
+				}
+			}
+			
+			// elbow of right arm
+			if ( "" != $lowerRightArmJoint && "" != $upperRightArmJoint )
+			{
+				string $newConstraint = mpLongName( mpJointCreateConstraint( $lowerRightArmJoint, $upperRightArmJoint, "Hinge", $bSilent, true ) );
+				
+				if ( "" != $newConstraint )
+				{
+					$newConstraints[size( $newConstraints )] = $newConstraint;
+					setAttr ( $newConstraint + ".range" ) 135;
+					setAttr ( $newConstraint + ".maxLimitAngleA" ) 100;
+					setAttr ( $newConstraint + ".isLimited" ) 1;
+				}
+			}
+			
+			// knee of left leg
+			if ( "" != $lowerLeftLegJoint && "" != $upperLeftLegJoint )
+			{
+				string $newConstraint = mpLongName( mpJointCreateConstraint( $lowerLeftLegJoint, $upperLeftLegJoint, "Hinge", $bSilent, true ) );
+				
+				if ( "" != $newConstraint )
+				{
+					$newConstraints[size( $newConstraints )] = $newConstraint;
+					setAttr ( $newConstraint + ".range" ) 120;
+					setAttr ( $newConstraint + ".maxLimitAngleA" ) 20;
+					setAttr ( $newConstraint + ".isLimited" ) 1;
+				}
+			}
+			
+			// knee of right leg
+			if ( "" != $lowerRightLegJoint && "" != $upperRightLegJoint )
+			{
+				string $newConstraint = mpLongName( mpJointCreateConstraint( $lowerRightLegJoint, $upperRightLegJoint, "Hinge", $bSilent, true ) );
+				
+				if ( "" != $newConstraint )
+				{
+					$newConstraints[size( $newConstraints )] = $newConstraint;
+					setAttr ( $newConstraint + ".range" ) 120;
+					setAttr ( $newConstraint + ".maxLimitAngleA" ) 20;
+					setAttr ( $newConstraint + ".isLimited" ) 1;
+				}
+			}
+			
+			// left shoulder
+			if ( "" != $upperTorsoJoint && "" != $upperLeftArmJoint )
+			{
+				string $newConstraint = mpLongName( mpJointCreateConstraint( $upperLeftArmJoint, $upperTorsoJoint, "Ragdoll", $bSilent, true ) );
+				
+				if ( "" != $newConstraint )
+				{
+					$newConstraints[size( $newConstraints )] = $newConstraint;
+					setAttr ( $newConstraint + ".twistMin" ) -5 ;
+					setAttr ( $newConstraint + ".twistMax" ) 5 ;
+					setAttr ( $newConstraint + ".coneMin" ) -145 ;
+					setAttr ( $newConstraint + ".coneMax" ) 15 ;
+					setAttr ( $newConstraint + ".planeMin" ) -5 ;
+					setAttr ( $newConstraint + ".planeMax" ) 65 ;
+					rotate -absolute -objectSpace 0deg -90deg 0deg $newConstraint;
+				}
+			}
+			
+			// right shoulder
+			if ( "" != $upperTorsoJoint && "" != $upperRightArmJoint )
+			{
+				string $newConstraint = mpLongName( mpJointCreateConstraint( $upperRightArmJoint, $upperTorsoJoint, "Ragdoll", $bSilent, true ) );
+				
+				if ( "" != $newConstraint )
+				{
+					$newConstraints[size( $newConstraints )] = $newConstraint;
+					setAttr ( $newConstraint + ".twistMin" ) -5 ;
+					setAttr ( $newConstraint + ".twistMax" ) 5 ;
+					setAttr ( $newConstraint + ".coneMin" ) -145 ;
+					setAttr ( $newConstraint + ".coneMax" ) 15 ;
+					setAttr ( $newConstraint + ".planeMin" ) -65;
+					setAttr ( $newConstraint + ".planeMax" ) 5 ;
+					rotate -absolute -objectSpace 0deg -90deg 0deg $newConstraint;
+				}
+			}
+			
+			// left hip
+			if ( "" != $pelvisJoint && "" != $upperLeftLegJoint )
+			{
+				string $newConstraint = mpLongName( mpJointCreateConstraint( $upperLeftLegJoint, $pelvisJoint, "Ragdoll", $bSilent, true ) );
+				
+				if ( "" != $newConstraint )
+				{
+					$newConstraints[size( $newConstraints )] = $newConstraint;
+					setAttr ( $newConstraint + ".twistMin" ) -5 ;
+					setAttr ( $newConstraint + ".twistMax" ) 5 ;
+					setAttr ( $newConstraint + ".coneMin" ) -85 ;
+					setAttr ( $newConstraint + ".coneMax" ) 25 ;
+					setAttr ( $newConstraint + ".planeMin" ) -45 ;
+					setAttr ( $newConstraint + ".planeMax" ) 2.5 ;
+					rotate -absolute -objectSpace 180deg 90deg 0deg $newConstraint;
+				}
+			}
+			
+			// right hip
+			if ( "" != $pelvisJoint && "" != $upperRightLegJoint )
+			{
+				string $newConstraint = mpLongName( mpJointCreateConstraint( $upperRightLegJoint, $pelvisJoint, "Ragdoll", $bSilent, true ) );
+				
+				if ( "" != $newConstraint )
+				{
+					$newConstraints[size( $newConstraints )] = $newConstraint;
+					setAttr ( $newConstraint + ".twistMin" ) -5 ;
+					setAttr ( $newConstraint + ".twistMax" ) 5 ;
+					setAttr ( $newConstraint + ".coneMin" ) -85 ;
+					setAttr ( $newConstraint + ".coneMax" ) 25 ;
+					setAttr ( $newConstraint + ".planeMin" ) -2.5;
+					setAttr ( $newConstraint + ".planeMax" ) 45 ;
+					rotate -absolute -objectSpace 180deg 90deg 0deg  $newConstraint;
+				}
+			}
+			
+			// head (neck)?
+			if ( "" != $upperTorsoJoint && "" != $headJoint )
+			{
+				string $newConstraint = mpLongName( mpJointCreateConstraint( $headJoint, $upperTorsoJoint, "Ragdoll", $bSilent, true ) );
+				
+				if ( "" != $newConstraint )
+				{
+					$newConstraints[size( $newConstraints )] = $newConstraint;
+					setAttr ( $newConstraint + ".twistMin" ) -30 ;
+					setAttr ( $newConstraint + ".twistMax" ) 30 ;
+					setAttr ( $newConstraint + ".coneMin" ) -25 ;
+					setAttr ( $newConstraint + ".coneMax" ) 30 ;
+					setAttr ( $newConstraint + ".planeMin" ) -15 ;
+					setAttr ( $newConstraint + ".planeMax" ) 15 ;
+					rotate -absolute -objectSpace 0 -90deg 0 $newConstraint;
+				}
+			}
+			
+			// Torso (Waist)?
+			if ( "" != $upperTorsoJoint && "" != $pelvisJoint )
+			{
+				string $newConstraint = mpLongName( mpJointCreateConstraint( $pelvisJoint, $upperTorsoJoint, "Ragdoll", $bSilent, true ) );
+				
+				if ( "" != $newConstraint )
+				{
+					$newConstraints[size( $newConstraints )] = $newConstraint;
+					setAttr ( $newConstraint + ".twistMin" ) -5 ;
+					setAttr ( $newConstraint + ".twistMax" ) 5 ;
+					setAttr ( $newConstraint + ".coneMin" ) -25 ;
+					setAttr ( $newConstraint + ".coneMax" ) 25 ;
+					setAttr ( $newConstraint + ".planeMin" ) -10;
+					setAttr ( $newConstraint + ".planeMax" ) 20 ;
+					rotate -absolute -objectSpace 90deg 0deg -90deg $newConstraint;
+				}
+			}
+		}
+		
+		if ( 0 != size ( $selection ) )
+		{
+			select -replace $selection;
+		}
+		else
+		{
+			select -clear;
+		}
+	}
+	
+	// convert names to their unique paths instead of full paths
+	$newConstraints = mpShortNames( $newConstraints );
+	
+	return $newConstraints;
+}
+
+//--------------------------------------------------------------------------------------------
+/** @author Jeff Cotton
+ *  @date   10/05/2004
+ *  @param  bSilent
+ *  @brief  
+ */
+global proc string[] mpCreateDefaultRigidBodies( int $bSilent )
+{
+	string $rootJoint = mpGetRootJoint( false, $bSilent );
+	string $newRigidBodies[];
+	
+	if ( "" != $rootJoint )
+	{
+		string $selection[] = `ls -selection`;
+		{
+			// delete old data
+			{ 
+				string $oldRigidBodies[] = mpGetRigidBodies( $rootJoint, true );
+				
+				if ( 0 != size( $oldRigidBodies ) )
+				{
+					$result = mpNotifyDialog( "Warning",
+					                          ( "RigidBodies already exists in skeleton " + $rootJoint + ". Replace?" ),
+					                          { "Yes", "No", "Individually", "Cancel" },
+					                          "No",
+					                          "Cancel",
+					                          ( "Not deleting existing RigidBodies from Skeleton" + $rootJoint ),
+					                          $bSilent );
+					
+					if ( "Yes" == $result )
+					{
+						for ( $oldRigidBody in $oldRigidBodies )
+						{
+							if ( "" != $oldRigidBody )
+							{
+								delete $oldRigidBody;
+							}
+						}
+					}
+					else if ( "No" == $result )
+					{
+						$bSilent = true;
+					}
+					else if ( "Cancel" == $result )
+					{
+						error( "mpCreateDefaultRigidBodies: Operation Canceled by user" );
+					}
+				}
+			}
+			
+			catch( $pelvisJoint        = mpUniquePath( $rootJoint, "Pelvis" ) );
+			catch( $upperTorsoJoint    = mpUniquePath( $rootJoint, "Upper_torso" ) );
+			catch( $upperLeftArmJoint  = mpUniquePath( $rootJoint, "Left_armu" ) );
+			catch( $lowerLeftArmJoint  = mpUniquePath( $rootJoint, "Left_arml" ) );
+			catch( $upperRightArmJoint = mpUniquePath( $rootJoint, "Right_armu" ) );
+			catch( $lowerRightArmJoint = mpUniquePath( $rootJoint, "Right_arml" ) );
+			catch( $upperLeftLegJoint  = mpUniquePath( $rootJoint, "Left_legu" ) );
+			catch( $lowerLeftLegJoint  = mpUniquePath( $rootJoint, "Left_legl" ) );
+			catch( $upperRightLegJoint = mpUniquePath( $rootJoint, "Right_legu" ) );
+			catch( $lowerRightLegJoint = mpUniquePath( $rootJoint, "Right_legl" ) );
+			catch( $headJoint          = mpUniquePath( $rootJoint, "Head" ) );
+			
+			// pelvis
+			if ( "" != $pelvisJoint )
+			{
+				// save the node by it's full path
+				string $newRigidBody[] = mpLongNames( mpJointCreateRigidBody( $pelvisJoint, "box", $bSilent, true ) );
+				
+				if ( 2 <= size( $newRigidBody ) && "" != $newRigidBody[0] && "" != $newRigidBody[1] )
+				{
+					$newRigidBodies[size( $newRigidBodies )] = $newRigidBody[0];
+					move -absolute -localSpace 2.0 5.0 0.0 $newRigidBody[0];
+					setAttr ( $newRigidBody[1] + ".width" ) 26;
+					setAttr ( $newRigidBody[1] + ".height" ) 32;
+					setAttr ( $newRigidBody[1] + ".depth" ) 34;
+				}
+			}
+			
+			// upper Torso
+			if ( "" != $upperTorsoJoint )
+			{
+				// save the node by it's full path
+				string $newRigidBody[] = mpLongNames( mpJointCreateRigidBody( $upperTorsoJoint, "box", $bSilent, true ) );
+				
+				if ( 2 <= size( $newRigidBody ) && "" != $newRigidBody[0] && "" != $newRigidBody[1] )
+				{
+					$newRigidBodies[size( $newRigidBodies )] = $newRigidBody[0];
+					move -absolute -localSpace 2.0 5.0 0.0 $newRigidBody[0];
+					setAttr ( $newRigidBody[1] + ".width" ) 26;
+					setAttr ( $newRigidBody[1] + ".height" ) 34;
+					setAttr ( $newRigidBody[1] + ".depth" ) 38;
+				}
+			}
+			
+			// Upper Left Arm
+			if ( "" != $upperLeftArmJoint )
+			{
+				// save the node by it's full path
+				string $newRigidBody[] = mpLongNames( mpJointCreateRigidBody( $upperLeftArmJoint, "capsule", $bSilent, true ) );
+				
+				if ( 2 <= size( $newRigidBody ) && "" != $newRigidBody[0] && "" != $newRigidBody[1] )
+				{
+					$newRigidBodies[size( $newRigidBodies )] = $newRigidBody[0];
+				}
+			}
+			
+			// Lower Left Arm
+			if ( "" != $lowerLeftArmJoint )
+			{
+				// save the node by it's full path
+				string $newRigidBody[] = mpLongNames( mpJointCreateRigidBody( $lowerLeftArmJoint, "capsule", $bSilent, true ) );
+				
+				if ( 2 <= size( $newRigidBody ) && "" != $newRigidBody[0] && "" != $newRigidBody[1] )
+				{
+					$newRigidBodies[size( $newRigidBodies )] = $newRigidBody[0];
+					move -absolute -localSpace 20.0 0.0 0.0 $newRigidBody[0];
+					setAttr ( $newRigidBody[1] + ".radius" ) 9;
+					setAttr ( $newRigidBody[1] + ".height" ) 30;
+				}
+			}
+			
+			// Upper Right Arm
+			if ( "" != $upperRightArmJoint )
+			{
+				// save the node by it's full path
+				string $newRigidBody[] = mpLongNames( mpJointCreateRigidBody( $upperRightArmJoint, "capsule", $bSilent, true ) );
+				
+				if ( 2 <= size( $newRigidBody ) && "" != $newRigidBody[0] && "" != $newRigidBody[1] )
+				{
+					$newRigidBodies[size( $newRigidBodies )] = $newRigidBody[0];
+				}
+			}
+			
+			// Lower Right Arm
+			if ( "" != $lowerRightArmJoint )
+			{
+				// save the node by it's full path
+				string $newRigidBody[] = mpLongNames( mpJointCreateRigidBody( $lowerRightArmJoint, "capsule", $bSilent, true ) );
+				
+				if ( 2 <= size( $newRigidBody ) && "" != $newRigidBody[0] && "" != $newRigidBody[1] )
+				{
+					$newRigidBodies[size( $newRigidBodies )] = $newRigidBody[0];
+					move -absolute -localSpace 20.0 0.0 0.0 $newRigidBody[0];
+					setAttr ( $newRigidBody[1] + ".radius" ) 9;
+					setAttr ( $newRigidBody[1] + ".height" ) 30;
+				}
+			}
+			
+			// Upper Left Leg
+			if ( "" != $upperLeftLegJoint )
+			{
+				// save the node by it's full path
+				string $newRigidBody[] = mpLongNames( mpJointCreateRigidBody( $upperLeftLegJoint, "capsule", $bSilent, true ) );
+				
+				if ( 2 <= size( $newRigidBody ) && "" != $newRigidBody[0] && "" != $newRigidBody[1] )
+				{
+					$newRigidBodies[size( $newRigidBodies )] = $newRigidBody[0];
+				}
+			}
+			
+			// Lower Left Leg
+			if ( "" != $lowerLeftLegJoint )
+			{
+				// save the node by it's full path
+				string $newRigidBody[] = mpLongNames( mpJointCreateRigidBody( $lowerLeftLegJoint, "capsule", $bSilent, true ) );
+				
+				if ( 2 <= size( $newRigidBody ) && "" != $newRigidBody[0] && "" != $newRigidBody[1] )
+				{
+					$newRigidBodies[size( $newRigidBodies )] = $newRigidBody[0];
+					//~ move -absolute -localSpace 20.0 0.0 0.0 $newRigidBody[0];
+					//~ setAttr ( $newRigidBody[1] + ".radius" ) 9;
+					//~ setAttr ( $newRigidBody[1] + ".height" ) 30;
+				}
+			}
+			
+			// Upper Right Leg
+			if ( "" != $upperRightLegJoint )
+			{
+				// save the node by it's full path
+				string $newRigidBody[] = mpLongNames( mpJointCreateRigidBody( $upperRightLegJoint, "capsule", $bSilent, true ) );
+				
+				if ( 2 <= size( $newRigidBody ) && "" != $newRigidBody[0] && "" != $newRigidBody[1] )
+				{
+					$newRigidBodies[size( $newRigidBodies )] = $newRigidBody[0];
+				}
+			}
+			
+			// Lower Right Leg
+			if ( "" != $lowerRightLegJoint )
+			{
+				// save the node by it's full path
+				string $newRigidBody[] = mpLongNames( mpJointCreateRigidBody( $lowerRightLegJoint, "capsule", $bSilent, true ) );
+				
+				if ( 2 <= size( $newRigidBody ) && "" != $newRigidBody[0] && "" != $newRigidBody[1] )
+				{
+					$newRigidBodies[size( $newRigidBodies )] = $newRigidBody[0];
+					//~ move -absolute -localSpace 20.0 0.0 0.0 $newRigidBody[0];
+					//~ setAttr ( $newRigidBody[1] + ".radius" ) 9;
+					//~ setAttr ( $newRigidBody[1] + ".height" ) 30;
+				}
+			}
+			
+			// Head
+			if ( "" != $headJoint )
+			{
+				// save the node by it's full path
+				string $newRigidBody[] = mpLongNames( mpJointCreateRigidBody( $headJoint, "Capsule", $bSilent, true ) );
+				
+				if ( 2 <= size( $newRigidBody ) && "" != $newRigidBody[0] && "" != $newRigidBody[1] )
+				{
+					$newRigidBodies[size( $newRigidBodies )] = $newRigidBody[0];
+					setAttr ( $newRigidBody[1] + ".radius" ) 12;
+					setAttr ( $newRigidBody[1] + ".height" ) 0;
+				}
+			}
+		}
+		
+		if ( 0 != size ( $selection ) )
+		{
+			select -replace $selection;
+		}
+		else
+		{
+			select -clear;
+		}
+	}
+	
+	// convert names to thier unique paths instead of full paths
+	$newRigidBodies = mpShortNames( $newRigidBodies );
+	
+	return $newRigidBodies;
+}
+
+//--------------------------------------------------------------------------------------------
+/** @author Jeff Cotton
+ *  @date   10/01/2004
+ *  @param  $parentUI
+ *  @brief  
+ */
+//~ global proc mpUITabPhysicsJointListSelectionChanged( string $parentUI, string $callback )
+//~ {
+	//~ string $controlPath = $parentUI + "|List";
+	
+	//~ if ( "" != $callback )
+	//~ {
+		//~ eval( $callback );
+	//~ }
+//~ }
+
+//--------------------------------------------------------------------------------------------
+/** @author Jeff Cotton
+ *  @date   10/01/2004
+ *  @param  $parentUI
+ *  @brief  
+ */
+global proc string[] mpUITabPhysicsJointListGetSelection( string $parentUI )
+{
+	string $controlPath = $parentUI + "|JointList|List";
+	
+	return mpNodeListGetSelection( $controlPath );
+}
+
+//--------------------------------------------------------------------------------------------
+/** @author Jeff Cotton
+ *  @date   10/01/2004
+ *  @param  $parentUI
+ *  @brief  
+ */
+global proc mpUITabPhysicsJointListUpdate( string $parentUI )
+{
+	string $basePath    = $parentUI + "|JointList";
+	string $controlPath = $parentUI + "|JointList|List";
+	string $rootJoint   = mpGetRootJoint( false, true );
+	int    $isFiltered  = `menuItem -query -checkBox ( $basePath + "|Popup|Filtered" )`;
+	string $joints[];
+	
+	checkBox -edit -value $isFiltered ( $basePath + "|FilteredCheckBox" );
+	
+	if ( "" != $rootJoint )
+	{
+		$joints[0] = $rootJoint;
+		$joints = stringArrayCatenate( $joints, mpGetJoints( $rootJoint, true ) );
+	}
+	
+	string $selection[] = mpNodeListGetSelection( $controlPath );
+	
+	mpNodeListClear( $controlPath );
+	
+	for ( $joint in $joints )
+	{
+		if ( $isFiltered )
+		{
+			$rigidBodyEntity = mpJointGetRigidBodyEntity( $joint );
+			if ( "" == $rigidBodyEntity )
+			{
+				continue;
+			}
+		}
+		
+		mpNodeListAdd( $rootJoint, $joint, $controlPath );
+	}
+	
+	for ( $item in $selection )
+	{
+		mpNodeListSelect( $rootJoint, $item, $controlPath );
+	}
+}
+
+//--------------------------------------------------------------------------------------------
+/** @author Jeff Cotton
+ *  @date   10/01/2004
+ *  @param  $parentUI - parent UI of the joint properties ui we want to operate on
+ *  @brief  Delete the Properties JointList UI if it exists on this parent
+ */
+global proc mpUITabPhysicsJointListDelete( string $parentUI )
+{
+	string $controlPath = $parentUI + "|JointList";
+	
+	if ( `frameLayout -exists $controlPath` )
+	{
+		deleteUI $controlPath;
+	}
+}
+
+//--------------------------------------------------------------------------------------------
+/** @author Jeff Cotton
+ *  @date   10/01/2004
+ *  @param  $parentUI - parent UI of the joint properties ui we want to operate on
+ *  @return full ELF path to the newly createUI (this is a framelayout)
+ *  @brief  Create the properties JointList UI the parent must already be set up
+ */
+global proc string mpUITabPhysicsJointListCreate( string $selectionChangedCallback,
+                                                  string $selectionActivateCallback )
+{
+	string $parentUI = `setParent -query`;
+	
+	mpUITabPhysicsJointListDelete( $parentUI );
+	
+	string $layout = `formLayout -numberOfDivisions 100 "JointList"`;
+	{
+		string $filteredMenuItem;
+		string $jointListPopupMenu = `popupMenu -parent $layout Popup`; 
+		{
+			$filteredMenuItem = `menuItem -checkBox true
+			                              -command  ( "mpUITabPhysicsJointListUpdate( \"" + $parentUI + "\" );" )
+			                              -label    "Filter: Nodes With Shapes"
+			                              Filtered`;
+		}
+		setParent -menu ..;
+		
+		mpUIEmbedUpdateCommand( "mpUITabPhysicsJointListUpdate( \"" + $parentUI + "\" )" );
+		
+		string $jointList = mpNodeListCreate( "List", $selectionChangedCallback, $selectionActivateCallback, "" );
+		mpNodeListEdit( "-allowMultiSelection true", $jointList );
+		
+		string $onCommand  = "menuItem -edit -checkBox true  \"" + $filteredMenuItem + "\"; mpUITabPhysicsJointListUpdate( \"" + $parentUI + "\" );";
+		string $offCommand = "menuItem -edit -checkBox false \"" + $filteredMenuItem + "\"; mpUITabPhysicsJointListUpdate( \"" + $parentUI + "\" );";
+		
+		string $filteredCheckBox = `checkBox -label      "Filter: Nodes With Shapes"
+		                                     -onCommand  $onCommand
+		                                     -offCommand $offCommand
+		                                     FilteredCheckBox`;
+		
+		formLayout -edit -attachNone    $filteredCheckBox "top"    
+		                 -attachForm    $filteredCheckBox "left"   0
+		                 -attachForm    $filteredCheckBox "bottom" 0
+		                 -attachForm    $filteredCheckBox "right"  0
+		                 
+		                 -attachForm    $jointList        "top"    0
+		                 -attachForm    $jointList        "left"   0
+		                 -attachControl $jointList        "bottom" 5 $filteredCheckBox
+		                 -attachForm    $jointList        "right"  0
+		                 
+		                 $layout;
+	}
+	setParent ..;
+	
+	mpUITabPhysicsJointListUpdate( $parentUI );
+	
+	return $layout;
+}
+
+//--------------------------------------------------------------------------------------------
+/** @author Jeff Cotton
+ *  @date   10/06/2004
+ *  @param  $bShow - true if the ragdoll should be shown
+ *  @brief  show or hide all physics data (ragdoll)
+ */
+global proc mpUITabPhysicsOperationsShowAllCommand( string $parentUI, int $bShow )
+{
+	string $rootJoint = mpGetRootJoint( false, true );
+	
+	if ( "" != $rootJoint )
+	{
+		string $rigidBodies[] = mpGetRigidBodies( $rootJoint, true );
+		string $constraints[] = mpGetConstraints( $rootJoint, true );
+		
+		for ( $rigidBody in $rigidBodies )
+		{
+			if ( "" != $rigidBody )
+			{
+				setAttr ( $rigidBody + ".visibility" ) $bShow;
+			}
+		}
+		
+		for ( $constraint in $constraints )
+		{
+			if ( "" != $constraint )
+			{
+				setAttr ( $constraint + ".visibility" ) $bShow;
+			}
+		}
+		
+		string $showAllButton = $parentUI + "|ShowAllButton";
+		string $hideAllButton = $parentUI + "|HideAllButton";
+		
+		control -edit -enable ( !$bShow ) $showAllButton;
+		control -edit -enable $bShow      $hideAllButton;
+	}
+}
+
+//--------------------------------------------------------------------------------------------
+/** @author Jeff Cotton
+ *  @date   10/06/2004
+ *  @param  $parentUI - parent UI of the joint properties ui we want to operate on
+ *  @brief  Update the UI with new values from external UI. 
+ */
+global proc mpUITabPhysicsOperationsUpdate( string $parentUI )
+{
+	string $controlPath = $parentUI + "|Operations";
+	
+	// if we haven't created the UI yet then create it.
+	if ( !`layout -exists $controlPath` )
+	{
+		$oldParentUI = `setParent -query`;
+		
+		setParent $parentUI;
+		{
+			mpUITabPhysicsOperationsCreate();
+		}
+		setParent $oldParentUI;
+	}
+	
+	string $rootJoint           = mpGetRootJoint( false, true );
+	string $basePath            = $controlPath;
+	string $showAllButton       = $basePath + "|ShowAllButton";
+	string $hideAllButton       = $basePath + "|HideAllButton";
+	string $createRagdollButton = $basePath + "|CreateRagdoll";
+	
+	int $bEnableShow   = false;
+	int $bEnableHide   = false;
+	int $bEnableCreate = ( "" == $rootJoint ? false : true );
+	
+	if ( "" != $rootJoint )
+	{
+		string $rigidBodies[] = mpGetRigidBodies( $rootJoint, true );
+		string $constraints[] = mpGetConstraints( $rootJoint, true );
+		
+		for ( $rigidBody in $rigidBodies )
+		{
+			if ( "" != $rigidBody )
+			{
+				$bEnableShow = $bEnableShow || !( `getAttr ( $rigidBody + ".visibility" )` );
+				$bEnableHide = $bEnableHide || `getAttr ( $rigidBody + ".visibility" )`;
+			}
+		}
+		
+		for ( $constraint in $constraints )
+		{
+			if ( "" != $constraint )
+			{
+				$bEnableShow = $bEnableShow || !( `getAttr ( $constraint + ".visibility" )` );
+				$bEnableHide = $bEnableHide || `getAttr ( $constraint + ".visibility" )`;
+			}
+		}
+	}
+	
+	control -edit -enable $bEnableShow   $showAllButton;
+	control -edit -enable $bEnableHide   $hideAllButton;
+	control -edit -enable $bEnableCreate $createRagdollButton;
+
+}
+
+//--------------------------------------------------------------------------------------------
+/** @author Jeff Cotton
+ *  @date   10/06/2004
+ *  @param  $parentUI - parent UI of the joint properties ui we want to operate on
+ *  @brief  Delete the Properties Operations UI if it exists on this parent
+ */
+global proc mpUITabPhysicsOperationsDelete( string $parentUI )
+{
+	string $controlPath = $parentUI + "|Operations";
+	
+	if ( `frameLayout -exists $controlPath` )
+	{
+		deleteUI $controlPath;
+	}
+}
+
+//--------------------------------------------------------------------------------------------
+/** @author Jeff Cotton
+ *  @date   10/06/2004
+ *  @param  $parentUI - parent UI of the joint properties ui we want to operate on
+ *  @return full ELF path to the newly createUI (this is a formLayout)
+ *  @brief  Create the properties Operations UI the parent must already be set up
+ */
+global proc string mpUITabPhysicsOperationsCreate()
+{
+	string $parentUI = `setParent -query`;
+	
+	mpUITabPhysicsOperationsDelete( $parentUI );
+	
+	string $layout = `formLayout -numberOfDivisions 100 "Operations"`;
+	{
+		mpUIEmbedUpdateCommand( "mpUITabPhysicsOperationsUpdate( \"" + $parentUI + "\" )" );
+		
+		string $showAllCommand = "mpUITabPhysicsOperationsShowAllCommand( \"" + $layout + "\", true );";
+		
+		string $showAllButton = `button -label   "Show All"
+		                                -enable  true
+		                                -align   "center"
+		                                -command $showAllCommand
+		                                ShowAllButton`;
+		
+		string $hideAllCommand = "mpUITabPhysicsOperationsShowAllCommand( \"" + $layout + "\", false );";
+		
+		string $hideAllButton = `button -label   "Hide All"
+		                                -enable  true
+		                                -align   "center"
+		                                -command $hideAllCommand
+		                                HideAllButton`;
+		
+		string $createRagdollCommand = "if ( !catch( mpCreateDefaultRigidBodies( false ) ) ) { catch( mpCreateDefaultRigidBodyConstraints( false ) ); }";
+		
+		string $createRagdollButton = `button -label   "Default Ragdoll"
+		                                      -enable  true
+		                                      -align   "center"
+		                                      -command $createRagdollCommand
+		                                      CreateRagdoll`;
+		
+		formLayout -edit -attachForm    $showAllButton       "top"    5
+		                 -attachForm    $showAllButton       "left"   5
+		                 -attachForm    $showAllButton       "bottom" 5
+		                 -attachNone    $showAllButton       "right"  
+		                 
+		                 -attachForm    $hideAllButton       "top"    5
+		                 -attachControl $hideAllButton       "left"   5 $showAllButton
+		                 -attachForm    $hideAllButton       "bottom" 5
+		                 -attachNone    $hideAllButton       "right"  
+		                 
+		                 -attachForm    $createRagdollButton "top"    5
+		                 -attachControl $createRagdollButton "left"   5 $hideAllButton
+		                 -attachForm    $createRagdollButton "bottom" 5
+		                 -attachNone    $createRagdollButton "right"  
+		                 
+		                 $layout;
+	}
+	setParent ..;
+	
+	mpUITabPhysicsOperationsUpdate( $parentUI );
+	
+	return $layout;
+}
+
+//--------------------------------------------------------------------------------------------
+/** @author Jeff Cotton
+ *  @date   10/15/2004
+ *  @param  $parentUI - 
+ *  @brief  
+ */
+global proc mpUITabPhysicsTabsPreSelectionChangeCommand(  string $parentUI )
+{
+	global string $mpUITabPhysicsName;
+	string $basePath    = ( $parentUI + "|" + $mpUITabPhysicsName );
+	string $tabsUI      = $basePath + "|Tabs";
+	string $selectedTab = $tabsUI + "|" + `tabLayout -query -selectTab $tabsUI`;
+	
+	mpUIUpdate( $selectedTab );
+}
+
+//--------------------------------------------------------------------------------------------
+/** @author Jeff Cotton
+ *  @date   09/27/2004
+ *  @param  parentTabLayout - 
+ *  @brief  Updates the physics tab's UI Elements with the correct values from the main tab
+ */
+global proc mpUITabPhysicsUpdate( string $parentUI )
+{
+	global string $mpUITabPhysicsName;
+	string $basePath     = ( $parentUI + "|" + $mpUITabPhysicsName );
+	string $tabsUI       = $basePath + "|Tabs";
+	string $operationsUI = $basePath + "|Operations";
+	
+	if ( !mpIsHavokPluginLoaded() )
+	{
+		mpNotifyDialog( "Havok Plug-in Not Loaded",
+		                "Havok plug-in not loaded, The physics tab can't be used if the Havok plugin is not loaded",
+		                { "OK" },
+		                "OK",
+		                "OK",
+		                "",
+		                false );
+	}
+	
+	layout -edit -visible ( mpIsHavokPluginLoaded() ) $basePath;
+	
+	// if the physics tab, and the sub tab layout exist then update them
+	if( `layout -exists $basePath` && `layout -exists $tabsUI` )
+	{
+		string $selectedTab = $tabsUI + "|" + `tabLayout -query -selectTab $tabsUI`;
+		
+		layout -edit -visible ( mpIsHavokPluginLoaded() ) $tabsUI;
+		layout -edit -visible ( mpIsHavokPluginLoaded() ) $operationsUI;
+		
+		mpUIUpdate( $selectedTab );
+		mpUIUpdate( $operationsUI );
+	}
+}
+
+//--------------------------------------------------------------------------------------------
+/** @author Jeff Cotton
+ *  @param  parentTabLayout - 
+ *  @date   09/27/2004
+ */
+proc mpUITabPhysicsDelete( string $parentTabLayout )
+{
+	global string $mpUITabPhysicsName;
+	if( `layout -exists ( $parentTabLayout + "|" + $mpUITabPhysicsName )` )
+	{
+		deleteUI -layout ( $parentTabLayout + "|" + $mpUITabPhysicsName );
+	}
+}
+
+//--------------------------------------------------------------------------------------------
+/** @author Jeff Cotton
+ *  @date   09/27/2004
+ *  @return full ELF path to the new layout of the Physics tab
+ *  @brief  Create the Physics tab for the Monolith Tabbed Panel
+ *
+ *   this function requires that a tab layout was previously created and is the current
+ *  layout parent
+ */
+global proc string mpUITabPhysicsCreate()
+{
+	global string $mpUITabPhysicsName;
+	
+	// might bail out of Mel script 
+	mpEnsureMonolithPluginLoaded( false );
+	
+	string $tabPhysicsFormLayout;
+	
+	// confirm that the current parent exists as a tab layout
+	// 	(confirm the parent IS a tabLayout)
+	string $parentTabLayout = `setParent -query`;
+	
+	if ( `tabLayout -exists $parentTabLayout` )
+	{
+		// if the Physics tab already exist then delete it so that it can be updated
+		//  if code changed.
+		mpUITabPhysicsDelete( $parentTabLayout );
+		
+		$tabPhysicsFormLayout = `formLayout -numberOfDivisions 100 $mpUITabPhysicsName`;
+		{
+			mpUIEmbedUpdateCommand( "mpUITabPhysicsUpdate( \"" + $parentTabLayout + "\" )" );
+			
+			string $strPreSelectCommand = "mpUITabPhysicsTabsPreSelectionChangeCommand( \"" + $parentTabLayout + "\" );";
+			string $mainTabLayout = `tabLayout -preSelectCommand  $strPreSelectCommand
+			                                   "Tabs"`;
+			{
+				string $getSelectedFileCallback = "mpUITabMainFileListGetSelectedFilename( \"" + $parentTabLayout + "\" )";
+				string $propertiesFormLayout    = mpUITabPhysicsTabPropertiesCreate();
+				string $constraintsFormLayout   = mpUITabPhysicsTabConstraintsCreate();
+				string $weightSetsFormLayout    = mpUITabPhysicsTabWeightsetsCreate( $getSelectedFileCallback );
+			}
+			setParent ..;
+			
+			string $operations = mpUITabPhysicsOperationsCreate();
+			
+			formLayout -edit -attachNone    $operations      "top"    
+			                 -attachForm    $operations      "left"   0
+			                 -attachForm    $operations      "bottom" 0
+			                 -attachForm    $operations      "right"  0
+			                 
+			                 -attachForm    $mainTabLayout   "top"    0
+			                 -attachForm    $mainTabLayout   "left"   0
+			                 -attachControl $mainTabLayout   "bottom" 0 $operations
+			                 -attachForm    $mainTabLayout   "right"  0
+			                 
+			                 $tabPhysicsFormLayout;
+		}
+		setParent ..;
+		
+		tabLayout -edit -tabLabel $tabPhysicsFormLayout "Physics" $parentTabLayout;
+		
+		mpUITabPhysicsUpdate( $parentTabLayout );
+	}
+	
+	return $tabPhysicsFormLayout;
+}

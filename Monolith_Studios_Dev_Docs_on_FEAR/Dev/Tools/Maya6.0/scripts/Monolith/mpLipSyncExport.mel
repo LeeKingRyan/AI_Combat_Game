@@ -1,0 +1,202 @@
+//--------------------------------------------------------------------------------------------
+/** @file   Monolith/mpLipSyncExport.mel
+ *  @date   09/01/2004
+ *
+ * (c) 1997-2004 Monolith Productions, Inc.  All Rights Reserved
+ */
+//--------------------------------------------------------------------------------------------
+
+source "monolith/mpModelUtility.mel";
+
+//--------------------------------------------------------------------------------------------
+/** @author Jeff Cotton
+ *  @date   09/01/2004
+ *  @brief  controlling function for lip sync export.
+ */
+global proc int mpDoLipSyncExport( string $filename,
+                                   string $rootLip,
+                                   string $lipChildren[],
+                                   int    $bForceOverwrite,
+                                   int    $bSilent )
+{
+	// if the file already exists, and we are not in force overwrite mode then do something
+	if ( `filetest -r $filename` && false == $bForceOverwrite )
+	{
+		string $strResult = mpConfirmDialog( "noyes",
+		                                     $filename,
+		                                     "Skipping " + $filename + ": file already exists",
+		                                     "File exists. would you like to overwrite?",
+		                                     $bSilent );
+		
+		if ( "Yes" != $strResult )
+		{
+			return false;
+		}
+	}
+	
+	string $tempTextFile = `mpCreateTempFile $rootLip $lipChildren`;
+	string $lipFile      = `mpConvertTempFile $tempTextFile $filename`;
+	
+	return true;
+}
+
+
+//--------------------------------------------------------------------------------------------
+/** @author Scott Tech (Andy Grant)
+ *  @date   ??/??/????
+ *  @brief  calls an external program to convert an ascii text file into a ".lip" file
+ */
+proc mpConvertTempFile( string $textFile, string $filename )
+{
+	$toolsPath = `mpBasePath -tools -query`;
+	$textFile  = substituteAllString( $textFile, "/", "\\" );
+	
+	$command = ( $toolsPath + "lipcompiler /file " + $textFile + " /out " + $filename );
+	
+	print ( $command + "\n" );
+	system $command;
+}
+
+
+//--------------------------------------------------------------------------------------------
+/** @author Scott Tech (Andy Grant)
+ *  @date   ??/??/????
+ *  @brief  does some number clamping
+ */
+proc float checkNum( float $input )
+{
+	if( abs( $input ) < 0.001 )
+	{
+		$input = 0;
+	}
+	
+	$input = ( trunc( $input * 10000 ) / 10000 );
+	
+	return $input;
+}
+
+
+//--------------------------------------------------------------------------------------------
+/** @author Scott Tech (Andy Grant)
+ *  @date   ??/??/????
+ *  @brief  Creates a plain ascii text file of lip sync information 
+ */
+global proc string mpCreateTempFile( string $root, string $exportNodes[] )
+{
+	global string $gPlayBackSlider;
+	
+	string $node[],      $baseNodes[], $outNodes[];
+	float  $xTran[],     $yTran[],     $zTran[];
+	float  $xRot[],      $yRot[],      $zRot[];
+	float  $xTranOffset, $yTranOffset, $zTranOffset;
+	float  $xRotOffset,  $yRotOffset,  $zRotOffset;
+	float  $curXTran,    $curYTran,    $curZTran;
+	float  $curXRot,     $curYRot,     $curZRot;
+	
+	int $maxTime = `playbackOptions -query -max`;
+	int $minTime = `playbackOptions -query -min`;
+	
+	currentTime 0;
+	cycleCheck -evaluation off;
+	
+	$rootNull = `spaceLocator`;
+	pointConstraint $root $rootNull;
+	orientConstraint $root $rootNull;
+	
+	for( $i = 0; $i < size( $exportNodes ); $i++ )
+	{
+		$newNull = `spaceLocator`;
+		$outNodes[$i] = $newNull[0];
+		pointConstraint $exportNodes[$i] $outNodes[$i];
+		orientConstraint $exportNodes[$i] $outNodes[$i];
+		
+		$newNull = `spaceLocator`;//`duplicate -rr $outNodes[$i]`;
+		$baseNodes[$i] = $newNull[0];
+		pointConstraint $exportNodes[$i] $baseNodes[$i];
+		orientConstraint $exportNodes[$i] $baseNodes[$i];
+		delete -constraints $baseNodes[$i];
+		parent $outNodes[$i] $baseNodes[$i];
+	}
+	
+	for( $i = 0; $i < size( $exportNodes ); $i++ )
+	{
+		$parent = `listRelatives -path -parent $exportNodes[$i]`;
+		if( $parent[0] == $root )
+		{
+			parent $baseNodes[$i] $rootNull;
+		}
+		else
+		{
+			for( $j = 0; $j < $i; $j++ )
+			{
+				if( $parent[0] == $exportNodes[$j] )
+				{
+					parent $baseNodes[$i] $outNodes[$j];
+					break;
+				}
+			}
+		}
+	}
+	
+	for( $i = 0; $i < size( $outNodes ); $i++ )
+	{	
+		$xTran[$i] = checkNum ( `getAttr -time 0 ( $outNodes[$i] + ".translateX" )`);
+		$yTran[$i] = checkNum ( `getAttr -time 0 ( $outNodes[$i] + ".translateY" )`);
+		$zTran[$i] = checkNum ( `getAttr -time 0 ( $outNodes[$i] + ".translateZ" )`);
+		$xRot[$i]  = checkNum ( `getAttr -time 0 ( $outNodes[$i] + ".rotateX" )`);
+		$yRot[$i]  = checkNum ( `getAttr -time 0 ( $outNodes[$i] + ".rotateY" )`);
+		$zRot[$i]  = checkNum ( `getAttr -time 0 ( $outNodes[$i] + ".rotateZ" )`);
+	}
+	
+	int $newi;
+	
+	for( $i = $minTime; $i <= 99999; $i++ )
+	{
+		$newi = `findKeyframe -time $i -which next FacePoser2000`;
+		if( $newi == $i ) break;
+	}
+	
+	$maxTime = $newi;
+	playbackOptions -max $maxTime;
+	
+	string $soundNode     = `timeControl -query -sound $gPlayBackSlider`;
+	string $soundFile     = `sound -query -file $soundNode`;
+	string $soundTextFile = `substitute "wav" $soundFile "txt"`;
+	int    $fileId        = `fopen $soundTextFile "w"`;
+	
+	fprint $fileId ( ( size( $outNodes ) ) + "\r\n" );
+	fprint $fileId ( trunc( float( $maxTime ) * 33.333333333 ) + "\r\n" );
+	
+	for( $i = 0; $i < size( $outNodes ); $i++ )
+	{
+		fprint $fileId ( $exportNodes[$i] + "\r\n" );
+	}
+	
+	for( $i = $minTime; $i <= $maxTime; $i++ )
+	{
+		fprint $fileId ( trunc( float( $i ) * 33.334 ) );
+		for( $j = 0; $j < size( $outNodes ); $j++ )
+		{
+			
+			$curXTran    = checkNum ( `getAttr -time $i ( $outNodes[$j] + ".translateX" )` );
+			$xTranOffset = $curXTran - $xTran[$j];
+			$curYTran    = checkNum ( `getAttr -time $i ( $outNodes[$j] + ".translateY" )` );
+			$yTranOffset = $curYTran - $yTran[$j];
+			$curZTran    = checkNum ( `getAttr -time $i ( $outNodes[$j] + ".translateZ" )` );
+			$zTranOffset = $curZTran - $zTran[$j];
+			$curXRot     = checkNum ( `getAttr -time $i ( $outNodes[$j] + ".rotateX" )` );
+			$xRotOffset  = $curXRot - $xRot[$j];
+			$curYRot     = checkNum ( `getAttr -time $i ( $outNodes[$j] + ".rotateY" )` );
+			$yRotOffset  = $curYRot - $yRot[$j];
+			$curZRot     = checkNum ( `getAttr -time $i ( $outNodes[$j] + ".rotateZ" )` );
+			$zRotOffset  = $curZRot - $zRot[$j];
+			
+			fprint $fileId ( "\t" + $xTranOffset + " " + $yTranOffset + " " + $zTranOffset + " " + $xRotOffset + " " + $yRotOffset + " " + $zRotOffset + "\r\n" );
+		}
+	}
+	
+	fclose $fileId;
+	delete $rootNull;
+	
+	return $soundTextFile;
+}

@@ -1,0 +1,13 @@
+
+global proc AEmpMeshAttributes(string $node)
+{
+	editorTemplate -beginLayout "Monolith Attributes" -collapse true;
+
+		editorTemplate -label "LOD Distance" -addControl "mpLODDistance";
+		editorTemplate -label "Material Index" -addControl "mpMaterialIndex";
+		editorTemplate -label "Translucent" -addControl "mpTranslucent";
+		editorTemplate -label "Cast Shadow" -addControl "mpCastShadow";
+		editorTemplate -label "Null LOD" -addControl "mpNullLOD";
+				
+	editorTemplate -endLayout;
+}

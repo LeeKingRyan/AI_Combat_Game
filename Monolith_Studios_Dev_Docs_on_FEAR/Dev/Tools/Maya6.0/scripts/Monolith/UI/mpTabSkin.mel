@@ -1,0 +1,100 @@
+//--------------------------------------------------------------------------------------------
+/** @file   Monolith/UI/mpTabSkin.mel
+ *  @date   08/20/2004
+ *
+ * (c) 1997-2004 Monolith Productions, Inc.  All Rights Reserved
+ */
+//--------------------------------------------------------------------------------------------
+
+source "monolith/mpModelImport.mel";
+source "monolith/mpModelExport.mel";
+source "monolith/UI/mpTabbedPanel.mel";
+source "monolith/UI/mpTabMain.mel";
+
+global string $mpUITabSkinName = "TabSkin";
+
+//--------------------------------------------------------------------------------------------
+/** @author Jeff Cotton
+ *  @date   09/15/2004
+ *  @brief  Updates the skin tab's UI Elements with the correct values from the main tab
+ */
+global proc mpUITabSkinUpdate( string $parentTabLayout )
+{
+	global string $mpUITabSkinName;
+	string $tabPath = ( $parentTabLayout + "|" + $mpUITabSkinName );
+	
+	if( `layout -exists $tabPath` )
+	{
+		int    $selectedFileID   = mpUITabMainFileListGetSelectedFileID( $parentTabLayout );
+		string $selectedFilename = mpUITabMainFileListGetSelectedFilename( $parentTabLayout );
+		string $filenames[]      = mpUITabMainFileListGetList( $parentTabLayout );
+		string $callback         = "mpUITabImportSelectedFileFrameChangeCallback \"" + $parentTabLayout + "\"";
+		
+		mpUITabbedPanelSelectedFileFrameUpdate( $tabPath, $filenames, $selectedFilename, $callback );
+	}
+}
+
+//--------------------------------------------------------------------------------------------
+/** @author Jeff Cotton
+ *  @date   09/15/2004
+ *  @param  parentTabLayout - 
+ *  @brief  Delete the Skin tab
+ */
+proc mpUITabSkinDelete( string $parentTabLayout )
+{
+	global string $mpUITabSkinName;
+	if( `layout -exists ( $parentTabLayout + "|" + $mpUITabSkinName )` )
+	{
+		deleteUI -layout ( $parentTabLayout + "|" + $mpUITabSkinName );
+	}
+}
+
+//--------------------------------------------------------------------------------------------
+/** @author Jeff Cotton
+ *  @date   09/15/2004
+ *  @brief  Create the Skin tab for the Monolith Tabbed Panel
+ *
+ *   this function requires that a tab layout was previously created and is the current
+ *  layout parent
+ */
+global proc string mpUITabSkinCreate()
+{
+	global string $mpUITabSkinName;
+	// might bail out of Mel script 
+	mpEnsureMonolithPluginLoaded( false );
+	
+	string $tabSkinFormLayout;
+	
+	// confirm that the current parent exists as a tab layout
+	// 	(confirm the parent IS a tabLayout)
+	string $parentTabLayout = `setParent -query`;
+	
+	if ( `tabLayout -exists $parentTabLayout` )
+	{
+		// if the Skin tab already exist then delete it so that it can be updated
+		//  if code changed.
+		mpUITabSkinDelete( $parentTabLayout );
+		
+		$tabSkinFormLayout = `formLayout -numberOfDivisions 100 $mpUITabSkinName`;
+		{
+			mpUIEmbedUpdateCommand( "mpUITabSkinUpdate( \"" + $parentTabLayout + "\" )" );
+			
+			string $filenameFrame = mpUITabbedPanelSelectedFileFrameCreate();
+			
+			formLayout -edit 
+			                 -attachForm     $filenameFrame      "top"    0
+			                 -attachForm     $filenameFrame      "left"   0
+			                 -attachNone     $filenameFrame      "bottom"
+			                 -attachForm     $filenameFrame      "right"  0
+			
+			                 $tabSkinFormLayout;
+		}
+		setParent ..;
+		
+		tabLayout -edit -tabLabel $tabSkinFormLayout "Skin" $parentTabLayout;
+		
+		mpUITabSkinUpdate( $parentTabLayout );
+	}
+	
+	return $tabSkinFormLayout;
+}

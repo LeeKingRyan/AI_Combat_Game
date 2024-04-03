@@ -1,0 +1,1147 @@
+//--------------------------------------------------------------------------------------------
+/** @file   Monolith/UI/mpTabMain.mel
+ *  @date   08/18/2004
+ *
+ * (c) 1997-2004 Monolith Productions, Inc.  All Rights Reserved
+ */
+//--------------------------------------------------------------------------------------------
+
+source "mpSettings.mel";
+source "Monolith/mpModelUtility.mel";
+
+//--------------------------------------------------------------------------------------------
+/** @author Jeff Cotton
+ *  @date   08/23/2004
+ *  @brief  
+ */
+global proc mpUITabMainDirectoryBrowserCommand( string $controlPath,
+                                                string $filename,
+                                                string $fileType )
+{
+	$filename = substituteAllString( $filename, "/", "\\" );
+	
+	textField -edit -text $filename $controlPath;
+}
+
+//--------------------------------------------------------------------------------------------
+/** @author Jeff Cotton
+ *  @date   08/23/2004
+ *  @brief  Command handler for the tools path browse button
+ */
+global proc mpUITabMainToolsPathBrowseButtonCommand( string $parentLayout )
+{
+	string $controlPath = $parentLayout + "|TabMain|ProjectSettingsLayout|MainFormLayout|ToolsPathEditText";
+	
+	string $oldWorkspace  = `workspace -query -dir`;
+	string $toolsBasePath = `mpBasePath -query -tools`;
+	workspace -dir $toolsBasePath;
+	
+	fileBrowserDialog -mode        4
+	                  -fileType    "directory"
+	                  -fileCommand ( "mpUITabMainDirectoryBrowserCommand \"" + $controlPath + "\"" )
+	                  -actionName  "Select Tools Directory";
+	
+	workspace -dir $oldWorkspace;
+	
+	mpUITabMainToolsPathChangeCommand( $parentLayout );
+}
+
+//--------------------------------------------------------------------------------------------
+/** @author Jeff Cotton
+ *  @date   08/23/2004
+ *  @brief  Command handler for the project path browse button
+ */
+global proc mpUITabMainProjectPathBrowseButtonCommand( string $parentLayout )
+{
+	string $controlPath = $parentLayout + "|TabMain|ProjectSettingsLayout|MainFormLayout|ProjectPathEditText";
+	
+	string $oldWorkspace    = `workspace -query -dir`;
+	string $projectBasePath = `mpBasePath -query -project`;
+	workspace -dir $projectBasePath;
+	
+	fileBrowserDialog -mode        4
+	                  -fileType    "directory"
+	                  -fileCommand ( "mpUITabMainDirectoryBrowserCommand \"" + $controlPath + "\"" )
+	                  -includeName $projectBasePath
+	                  -actionName  "Select Project Directory";
+	
+	workspace -dir $oldWorkspace;
+	
+	mpUITabMainProjectPathChangeCommand( $parentLayout );
+}
+
+
+//--------------------------------------------------------------------------------------------
+/** @author Jeff Cotton
+ *  @date   09/02/2004
+ *  @brief  Command handler for the tools path edit text box on change command
+ */
+global proc mpUITabMainToolsPathChangeCommand( string $parentLayout )
+{
+	string $controlPath = $parentLayout + "|TabMain|ProjectSettingsLayout|MainFormLayout|ToolsPathEditText";
+	string $newPath = `textField -query -text $controlPath`;
+	
+	string $testPath = encodeString( $newPath );
+	if ( `filetest -d $testPath` )
+	{
+		mpBasePath -tools $newPath;
+	}
+	else
+	{
+		mpConfirmDialog( "ok",
+		                 "Error",
+		                 "Not a legal directory " + $newPath,
+		                 "Not a legal directory " + $newPath,
+		                 false );
+		
+		string $toolsBasePath = `mpBasePath -query -tools`;
+		textField -edit -text $toolsBasePath $controlPath;
+	}
+}
+
+//--------------------------------------------------------------------------------------------
+/** @author Jeff Cotton
+ *  @date   09/02/2004
+ *  @brief  Command handler for the tools path edit text box on change command
+ */
+global proc mpUITabMainProjectPathChangeCommand( string $parentLayout )
+{
+	string $controlPath = $parentLayout + "|TabMain|ProjectSettingsLayout|MainFormLayout|ProjectPathEditText";
+	string $newPath = `textField -query -text $controlPath`;
+	
+	string $testPath = encodeString( $newPath );
+	if ( `filetest -d $testPath` )
+	{
+		mpBasePath -project $newPath;
+		mpUITabMainFileListUpdate( $parentLayout );
+	}
+	else
+	{
+		mpConfirmDialog( "ok",
+		                 "Error",
+		                 "Not a legal directory " + $newPath,
+		                 "Not a legal directory " + $newPath,
+		                 false );
+		
+		string $projetBasePath = `mpBasePath -query -project`;
+		textField -edit -text $projetBasePath $controlPath;
+	}
+}
+
+//--------------------------------------------------------------------------------------------
+/** @author Jeff Cotton
+ *  @date   03/22/05
+ *  @brief  
+ */
+global proc mpUITabMainCompressionTypeChangedCommand( string $parentTabLayout )
+{
+	string $basePath    = $parentTabLayout + "|TabMain|ModelPropertiesLayout|MainFormLayout";
+	string $controlPath = $basePath + "|CompressionTypeMenu";
+	int    $fileID      = mpUITabMainFileListGetSelectedFileID( $parentTabLayout );
+	
+	if ( -1 != $fileID )
+	{
+		int $iCompressionType = `optionMenuGrp -query -select $controlPath`;
+		
+		catch( `mpModelToolsInfo -id $fileID -compressionType ( $iCompressionType - 1 )` );
+	}
+	
+	mpUITabMainOperationsUpdate( $parentTabLayout );
+}
+
+//--------------------------------------------------------------------------------------------
+/** @author Jeff Cotton
+ *  @date   03/22/05
+ *  @brief  
+ */
+global proc mpUITabMainMinBoneWeightChangedCommand( string $parentTabLayout )
+{
+	string $basePath    = $parentTabLayout + "|TabMain|ModelPropertiesLayout|MainFormLayout";
+	string $controlPath = $basePath + "|MinBoneWeight";
+	int    $fileID      = mpUITabMainFileListGetSelectedFileID( $parentTabLayout );
+	
+	if ( -1 != $fileID )
+	{
+		float $fMinBoneWeight = `floatField -query -value $controlPath`;
+		
+		catch( `mpModelToolsInfo -id $fileID -minBoneWeight $fMinBoneWeight` );
+	}
+	
+	mpUITabMainOperationsUpdate( $parentTabLayout );
+}
+
+//--------------------------------------------------------------------------------------------
+/** @author Jeff Cotton
+ *  @date   03/22/05
+ *  @brief  
+ */
+global proc mpUITabMainAdditiveVisibleRadiusChangedCommand( string $parentTabLayout )
+{
+	string $basePath    = $parentTabLayout + "|TabMain|ModelPropertiesLayout|MainFormLayout";
+	string $controlPath = $basePath + "|AdditiveVisibleRadius";
+	int    $fileID      = mpUITabMainFileListGetSelectedFileID( $parentTabLayout );
+	
+	if ( -1 != $fileID )
+	{
+		float $fAdditiveVisibleRadius = `floatField -query -value $controlPath`;
+		
+		catch( `mpModelToolsInfo -additiveVisibleRadius $fAdditiveVisibleRadius -id $fileID` );
+	}
+	
+	mpUITabMainOperationsUpdate( $parentTabLayout );
+}
+
+//--------------------------------------------------------------------------------------------
+/** @author Jeff Cotton
+ *  @date   12/15/2004
+ *  @brief  
+ */
+global proc mpUITabMainExcludeGeometryOnCommand( string $parentTabLayout )
+{
+	string $basePath    = $parentTabLayout + "|TabMain|ModelPropertiesLayout|MainFormLayout";
+	string $controlPath = $basePath + "|ExcludeGeometryCheckBox";
+	int    $fileID      = mpUITabMainFileListGetSelectedFileID( $parentTabLayout );
+	
+	if ( -1 != $fileID )
+	{
+		catch( `mpModelToolsInfo -id $fileID -excludeGeometry true` );
+	}
+	
+	mpUITabMainOperationsUpdate( $parentTabLayout );
+}
+
+//--------------------------------------------------------------------------------------------
+/** @author Jeff Cotton
+ *  @date   12/15/2004
+ *  @brief  
+ */
+global proc mpUITabMainExcludeGeometryOffCommand( string $parentTabLayout )
+{
+	string $basePath    = $parentTabLayout + "|TabMain|ModelPropertiesLayout|MainFormLayout";
+	string $controlPath = $basePath + "|ExcludeGeometryCheckBox";
+	int    $fileID      = mpUITabMainFileListGetSelectedFileID( $parentTabLayout );
+	
+	if ( -1 != $fileID )
+	{
+		catch( `mpModelToolsInfo -id $fileID -excludeGeometry false` );
+	}
+	
+	mpUITabMainOperationsUpdate( $parentTabLayout );
+}
+
+//--------------------------------------------------------------------------------------------
+/** @author Jeff Cotton
+ *  @date   11/11/2004
+ *  @brief  Updates the buttons that perform actions on the main tab
+ */
+global proc mpUITabMainModelPropertiesFrameUpdate( string $parentTabLayout )
+{
+	int $selectedFileID = mpUITabMainFileListGetSelectedFileID( $parentTabLayout );
+	
+	string $basePath                     = $parentTabLayout + "|TabMain|ModelPropertiesLayout|MainFormLayout";
+	string $compressionTypeMenu          = $basePath + "|CompressionTypeMenu";
+	string $minBoneWeightControl         = $basePath + "|MinBoneWeight";
+	string $additiveVisibleRadiusControl = $basePath + "|AdditiveVisibleRadius";
+	string $excludeGeometryCheckBox      = $basePath + "|ExcludeGeometryCheckBox";
+	
+	int $bEnabled = ( -1 != $selectedFileID ? true : false );
+	
+	// @todo support disabled features
+	control -edit -enable $bEnabled $basePath;
+	control -edit -enable $bEnabled $compressionTypeMenu;
+	control -edit -enable $bEnabled $minBoneWeightControl;
+	control -edit -enable $bEnabled $additiveVisibleRadiusControl;
+	control -edit -enable $bEnabled $excludeGeometryCheckBox;
+	
+	if ( $bEnabled )
+	{
+		int $iCompressionType = 0;
+		catch( $iCompressionType = `mpModelToolsInfo -id $selectedFileID -query -compressionType` );
+		catch( `optionMenuGrp -edit -select ( $iCompressionType + 1 ) $compressionTypeMenu` );
+		
+		float $fMinBoneWeight = 0.05;
+		catch( $fMinBoneWeight = `mpModelToolsInfo -id $selectedFileID -query -minBoneWeight` );
+		floatField -edit -value $fMinBoneWeight $minBoneWeightControl;
+		
+		float $fAdditiveVisibleRadius = 0.0;
+		catch( $fAdditiveVisibleRadius = `mpModelToolsInfo -id $selectedFileID -query -additiveVisibleRadius` );
+		floatField -edit -value $fAdditiveVisibleRadius $additiveVisibleRadiusControl;
+		
+		int $bExcludeGeometry = true;
+		catch( $bExcludeGeometry = `mpModelToolsInfo -id $selectedFileID -query -excludeGeometry` );
+		checkBoxGrp -edit -value1 $bExcludeGeometry $excludeGeometryCheckBox;
+	}
+}
+
+//--------------------------------------------------------------------------------------------
+/** @author Jeff Cotton
+ *  @date   03/22/05
+ *  @brief  Create the Model Properties UI in the Monolith Tabbed Panel 
+ *
+ *   this function requires that a parent layout exists 
+ */
+global proc string mpUITabMainModelPropertiesFrameCreate( string $parentTabLayout )
+{
+	string $projectSettingsLayout;
+	
+	// confirm that a parent layout exists
+	string $parentLayout = `setParent -query`;
+
+	if ( `layout -exists $parentLayout` )
+	{
+		//~ // If the project settings already exists then delete them. so they can be updated
+		if( `layout -exists ( $parentLayout + "|ModelPropertiesLayout" )` )
+		{
+			deleteUI -layout ( $parentLayout + "|ModelPropertiesLayout" );
+		}
+		
+		$projectSettingsLayout = `frameLayout -label       "Model Properties"
+		                                      -width       200
+		                                      -collapsable true
+		                                      -borderStyle "etchedIn"
+		                                      ModelPropertiesLayout`;
+		{
+			string $mainFormLayout = `formLayout -numberOfDivisions 100
+			                                     MainFormLayout`;
+			{
+				// @todo support Compression Types
+				// Drop down menu of compression types
+				string $compressionTypeMenu = `optionMenuGrp -label             "Compression Type"
+				                                             -columnAlign2      "left" "right"
+				                                             -columnWidth2      125 85
+				                                             -adjustableColumn2 2
+				                                             -enable            false
+				                                             -changeCommand ( "mpUITabMainCompressionTypeChangedCommand( \"" + $parentTabLayout + "\" )" )
+				                                             CompressionTypeMenu`;
+				{
+					menuItem -label "No Compression" -data 0;
+					menuItem -label "Compress Position" -data 1;
+					menuItem -label "Compress Rotation" -data 2;
+					menuItem -label "Compress Position and Rotation" -data 3;
+				}
+				setParent -menu ..;
+				
+				string $minBoneWeightTitle = `text -align "left" -label "Min Bone Weight" -width 125`;
+				
+				string $minBoneWeight = `floatField -precision     4
+				                                    -step          0.01
+				                                    -width         85
+				                                    -minValue      0
+				                                    -maxValue      100000
+				                                    -changeCommand ( "mpUITabMainMinBoneWeightChangedCommand( \"" + $parentTabLayout + "\" )" )
+				                                    -enable        false
+				                                    MinBoneWeight`;
+				
+				string $additiveVisibleRadiusTitle = `text -align "left" -label "Additive Visible Radius" -width 125`;
+				
+				string $additiveVisibleRadius = `floatField -precision     4
+				                                            -step          1
+				                                            -width         85
+				                                            -minValue      0
+				                                            -maxValue      10000
+				                                            -changeCommand ( "mpUITabMainAdditiveVisibleRadiusChangedCommand( \"" + $parentTabLayout + "\" )" )
+				                                            //-enable        false
+				                                            AdditiveVisibleRadius`;
+				
+				string $excludeGeometryCheckBox = `checkBoxGrp -label         "Exclude Geometry"
+				                                               -columnWidth   1 125
+				                                               -columnAlign   1 "left"
+				                                               -onCommand     ( "mpUITabMainExcludeGeometryOnCommand( \"" + $parentTabLayout + "\" )" )
+				                                               -offCommand    ( "mpUITabMainExcludeGeometryOffCommand( \"" + $parentTabLayout + "\" )" )
+				                                               ExcludeGeometryCheckBox`;
+				
+				
+				// Adjust the children controls to better fit in the form layout
+				formLayout -edit 
+				                 -attachForm     $compressionTypeMenu "left"   5
+				                 -attachForm     $compressionTypeMenu "top"    5
+				                 -attachForm     $compressionTypeMenu "right"  5
+				                 -attachNone     $compressionTypeMenu "bottom"
+				
+				                 -attachForm     $minBoneWeightTitle "left"   5
+				                 -attachControl  $minBoneWeightTitle "top"    5 $compressionTypeMenu
+				                 -attachNone     $minBoneWeightTitle "right"
+				                 -attachNone     $minBoneWeightTitle "bottom" 
+				
+				                 -attachControl  $minBoneWeight "left"   0 $minBoneWeightTitle
+				                 -attachControl  $minBoneWeight "top"    5 $compressionTypeMenu
+				                 -attachNone     $minBoneWeight "right" 
+				                 -attachNone     $minBoneWeight "bottom" 
+				
+				                 -attachForm     $additiveVisibleRadiusTitle "left"   5
+				                 -attachControl  $additiveVisibleRadiusTitle "top"    5 $minBoneWeight
+				                 -attachNone     $additiveVisibleRadiusTitle "right" 
+				                 -attachNone     $additiveVisibleRadiusTitle "bottom"
+				
+				                 -attachControl  $additiveVisibleRadius "left"   0 $additiveVisibleRadiusTitle
+				                 -attachControl  $additiveVisibleRadius "top"    5 $minBoneWeight
+				                 -attachNone     $additiveVisibleRadius "right"  
+				                 -attachNone     $additiveVisibleRadius "bottom"
+				
+				                 -attachForm     $excludeGeometryCheckBox "left"   5
+				                 -attachControl  $excludeGeometryCheckBox "top"    5 $additiveVisibleRadius
+				                 -attachForm     $excludeGeometryCheckBox "right"  5
+				                 -attachForm     $excludeGeometryCheckBox "bottom" 5
+				
+				                 $mainFormLayout;
+			}
+			setParent ..;
+		}
+		setParent ..;
+	}
+	
+	return $projectSettingsLayout;
+}
+
+//--------------------------------------------------------------------------------------------
+/** @author Scott
+ *  @date   ???????
+ *  @brief  Create the project setting's UI in the Monolith Tabbed Panel 
+ *
+ *   this function requires that a parent layout exists 
+ *
+ *  @date 08/18/04 - Renamed function to fit my naming scheme @author Jeff Cotton.
+ *  @date 08/18/04 - remove parameters in favor of gauranteed state @author Jeff Cotton.
+ *  @date 08/19/04 - converted to use a form instead of column layout. so that the controls
+ *                    better adjust to resizing @author Jeff Cotton.
+ *  @date 08/19/04 - changed all flags to long names, and reformatted code layout
+ *                    @author Jeff Cotton
+ */
+global proc string mpUITabMainProjectSettingsFrameCreate( string $parentTabLayout )
+{
+	// if the Monolith plug-in is not loaded then bail
+	if ( !`pluginInfo -query -loaded "Monolith.ActionGames"` )
+	{
+		mpConfirmDialog( "ok",
+		                 "Error",
+		                 "", //"Monolith.ActionGames Plug-in not loaded",
+		                 "Monolith.ActionGames Plug-in not loaded",
+		                 false );
+		error( "Monolith.ActionGames Plug-in not loaded" );
+	}
+
+	string $projectSettingsLayout;
+
+	// confirm that a parent layout exists
+	string $parentLayout = `setParent -query`;
+
+	if ( `layout -exists $parentLayout` )
+	{
+		//~ // If the project settings already exists then delete them. so they can be updated
+		if( `layout -exists ( $parentLayout + "|ProjectSettingsLayout" )` )
+		{
+			deleteUI -layout ( $parentLayout + "|ProjectSettingsLayout" );
+		}
+		
+		$projectSettingsLayout = `frameLayout -label       "Project Settings"
+		                                      -width       200
+		                                      -collapsable true
+		                                      -borderStyle "etchedIn"
+		                                      ProjectSettingsLayout`;
+			
+			string $mainFormLayout = `formLayout -numberOfDivisions 100
+			                                     MainFormLayout`;
+				
+				//~ // Drop down menu of project numbers. I'm considering moving this to outside the
+				//~ //  project settings, because I think that the project number determines what
+				//~ //  project settings you will be using.
+				//~ string $projectNumberMenu = `optionMenuGrp -label             "Default Project Number:"
+				                                           //~ -columnAlign2      "left" "right"
+				                                           //~ -columnWidth2      125 85
+				                                           //~ -adjustableColumn2 2
+				                                           //~ ProjectNumberMenu`;
+					//~ menuItem -label "00";
+					//~ menuItem -label "01";
+				
+				//~ setParent -menu ..;
+				
+				//~ optionMenuGrp -edit -value "00" $projectNumberMenu;
+				
+				// Drop down menu of format types
+				string $defaultFormatMenu = `optionMenuGrp -label             "Default Format:"
+				                                           -columnAlign2      "left" "right"
+				                                           -columnWidth2      125 85
+				                                           -adjustableColumn2 2
+				                                           DefaultFormatMenu`;
+					
+					menuItem -label "compressed" -data true;
+					menuItem -label "ascii" -data false;
+					
+				setParent -menu ..;
+				
+				optionMenuGrp -edit -value "compressed" $defaultFormatMenu;
+				
+				// Tools path label(static text), edit box, and browse button
+				string $toolsPathStaticText = `text -label "Tools Path:" ToolsPathStaticText`;
+				
+				string $toolsBasePath = `mpBasePath -query -tools`;
+				
+				string $toolsPathEditText = `textField -fileName      $toolsBasePath
+				                                       -changeCommand ( "mpUITabMainToolsPathChangeCommand \"" + $parentTabLayout + "\"" )
+				                                       ToolsPathEditText`;
+				
+				string $toolsPathBrowseButton = `button -label    "..."
+				                                        -command  ( "mpUITabMainToolsPathBrowseButtonCommand \"" + $parentTabLayout + "\"" )
+				                                        ToolsPathBrowseButton`;
+				
+				// Project path label(static text), edit box, and browse button
+				string $projectPathStaticText = `text -label "Project Path:" ProjectPathStaticText`;
+				
+				string $projetBasePath = `mpBasePath -query -project`;
+				
+				string $projectPathEditText = `textField -fileName      $projetBasePath 
+				                                         -changeCommand ( "mpUITabMainProjectPathChangeCommand \"" + $parentTabLayout + "\"" )
+				                                         ProjectPathEditText`;
+				
+				string $projectPathBrowseButton = `button -label    "..."
+				                                          -command  ( "mpUITabMainProjectPathBrowseButtonCommand \"" + $parentTabLayout + "\"" )
+				                                          ProjectPathBrowseButton`;
+				
+				// Adjust the children controls to better fit in the form layout
+				formLayout -edit 
+				                 //~ -attachForm     $projectNumberMenu       "top"    0
+				                 //~ -attachForm     $projectNumberMenu       "left"   10
+				                 //~ -attachNone     $projectNumberMenu       "bottom"
+				                 //~ -attachNone     $projectNumberMenu       "right"
+				
+				                 //~ -attachControl  $defaultFormatMenu       "top"    5 $projectNumberMenu
+				                 -attachForm     $defaultFormatMenu       "top"    5
+				                 -attachForm     $defaultFormatMenu       "left"   10
+				                 -attachNone     $defaultFormatMenu       "bottom"
+				                 -attachForm     $defaultFormatMenu       "right"  0
+				
+				                 -attachControl  $toolsPathStaticText     "top"    5  $defaultFormatMenu
+				                 -attachForm     $toolsPathStaticText     "left"   10
+				                 -attachNone     $toolsPathStaticText     "bottom"
+				                 -attachNone     $toolsPathStaticText     "right"
+				
+				                 -attachControl  $toolsPathBrowseButton   "top"    5 $toolsPathStaticText
+				                 -attachNone     $toolsPathBrowseButton   "left"
+				                 -attachNone     $toolsPathBrowseButton   "bottom"
+				                 -attachForm     $toolsPathBrowseButton   "right"  10
+				
+				                 -attachControl  $toolsPathEditText       "top"    5 $toolsPathStaticText
+				                 -attachForm     $toolsPathEditText       "left"   20
+				                 -attachNone     $toolsPathEditText       "bottom"
+				                 -attachControl  $toolsPathEditText       "right"  0 $toolsPathBrowseButton
+				
+				                 -attachControl  $projectPathStaticText   "top"    5 $toolsPathEditText
+				                 -attachForm     $projectPathStaticText   "left"   10
+				                 -attachNone     $projectPathStaticText   "bottom"
+				                 -attachForm     $projectPathStaticText   "right"  0
+				
+				                 -attachControl  $projectPathBrowseButton "top"    5 $projectPathStaticText
+				                 -attachNone     $projectPathBrowseButton "left"
+				                 -attachForm     $projectPathBrowseButton "bottom" 10
+				                 -attachForm     $projectPathBrowseButton "right"  10
+				
+				                 -attachControl  $projectPathEditText     "top"    5 $projectPathStaticText
+				                 -attachForm     $projectPathEditText     "left"   20
+				                 -attachForm     $projectPathEditText     "bottom" 10
+				                 -attachControl  $projectPathEditText     "right"  0 $projectPathBrowseButton
+				
+				                 $mainFormLayout;
+				
+			setParent ..;
+			
+		setParent ..;
+	}
+	
+	return $projectSettingsLayout;
+}
+
+//--------------------------------------------------------------------------------------------
+/** @author Jeff Cotton
+ *  @date   08/24/2004
+ *  @brief  
+ */
+global proc string[] mpUITabMainFileListGetList( string $parentLayout )
+{
+	return `textScrollList -query -allItems ( $parentLayout + "|TabMain|FileList" )`;
+}
+
+//--------------------------------------------------------------------------------------------
+/** @author Jeff Cotton
+ *  @date   08/23/2004
+ *  @brief  Sets the selected text in the file list based on fileID
+ */
+global proc mpUITabMainFileListSetSelection( string $parentLayout, int $fileID )
+{
+	string $controlPath    = $parentLayout + "|TabMain|FileList";
+	string $controlPathIDs = $parentLayout + "|TabMain|FileIDList";
+	
+	if ( -1 == $fileID )
+	{
+		textScrollList -edit -deselectAll $controlPath;
+		textScrollList -edit -deselectAll $controlPathIDs;
+	}
+	else
+	{
+		$files = `mpModelOpen -query -files`;
+		for ( $ii = 0; $ii < size( $files ); $ii++ )
+		{
+			string $file = $files[$ii];
+	
+			if ( $fileID == `mpModelOpen -query -id $file` )
+			{
+				textScrollList -edit -selectIndexedItem ( $ii + 1 ) $controlPath;
+				textScrollList -edit -selectIndexedItem ( $ii + 1 ) $controlPathIDs;
+			}
+		}
+	}
+	
+	mpUITabMainOperationsUpdate( $parentLayout );
+	mpUITabMainModelPropertiesFrameUpdate( $parentLayout );
+}
+
+//--------------------------------------------------------------------------------------------
+/** @author Jeff Cotton
+ *  @date   08/23/2004
+ *  @brief  Returns the 1 and only official selection from the file list or the empty string
+ */
+global proc string mpUITabMainFileListGetSelectedFilename( string $parentLayout )
+{
+	string $selectedFileNames[] = `textScrollList -query -selectItem ( $parentLayout + "|TabMain|FileList" )`;
+	string $selectedFile;
+	
+	// @Note - our textScrollList should only allow single select.
+	if ( 1 <= size( $selectedFileNames ) )
+	{
+		// just return the first selected filename
+		$selectedFile = $selectedFileNames[0];
+	}
+	
+	return $selectedFile;
+}
+
+//--------------------------------------------------------------------------------------------
+/** @author Jeff Cotton
+ *  @date   08/23/2004
+ *  @brief  Gets the file ID for the selected file.
+ */
+global proc int mpUITabMainFileListGetSelectedFileID( string $parentLayout )
+{
+	int $selectedFileID = -1;
+	
+	// quering the id of a file will fail if the file isn't open. just catch the failure,
+	//  because selectedFileID will stay -1
+	string $fileName = mpUITabMainFileListGetSelectedFilename( $parentLayout );
+	if ( "" != $fileName )
+	{
+		catch( $selectedFileID = `mpModelOpen -query -id $fileName` );
+	}
+	
+	return $selectedFileID;
+}
+
+//--------------------------------------------------------------------------------------------
+/** @author Jeff Cotton
+ *  @date   08/20/2004
+ *  @brief  Flushes the flie list and fills it back in with the current files
+ */
+global proc mpUITabMainFileListUpdate( string $parentLayout )
+{
+	textScrollList -edit -removeAll ( $parentLayout + "|TabMain|FileList" );
+	textScrollList -edit -removeAll ( $parentLayout + "|TabMain|FileIDList" );
+	
+	string $fileNames[] = `mpModelOpen -query -files`;
+	
+	for ( $fileName in $fileNames )
+	{
+		string $fileID = `mpModelOpen -query -id $fileName`;
+		$fileName = substituteAllString( $fileName, "/", "\\" );
+
+		// strip off the base path. for now it's brute force with no error checking.
+		string $basePath = `mpBasePath -query`;
+		int    $basePathLen = size( $basePath );
+		int    $fileNameLen = size( $fileName );
+		
+		if ( $basePathLen < $fileNameLen )
+		{
+			if ( !strcmp( $basePath, ( `substring $fileName 1 $basePathLen` ) ) )
+			{
+				$fileName = `substring $fileName ( $basePathLen + 1 ) $fileNameLen`;
+			}
+		}
+		
+		textScrollList -edit -append $fileName ( $parentLayout + "|TabMain|FileList" );
+		textScrollList -edit -append $fileID ( $parentLayout + "|TabMain|FileIDList" );
+	}
+}
+
+//--------------------------------------------------------------------------------------------
+/** @author Jeff Cotton
+ *  @date   08/23/2004
+ *  @brief  remove the selected item from the file list.
+ *
+ *   Select the item that replaces the removed item, or the previous item if the selected
+ *  item was the last item.
+ */
+global proc mpUITabMainFileListRemoveSelectedItem( string $parentLayout )
+{
+	string $controlPath    = $parentLayout + "|TabMain|FileList";
+	string $controlPathIDs = $parentLayout + "|TabMain|FileIDList";
+	
+	int $selectedIndex[] = `textScrollList -query -selectIndexedItem $controlPath`;
+	
+	if ( 1 <= size( $selectedIndex ) )
+	{
+		textScrollList -edit -removeIndexedItem $selectedIndex[0] $controlPath;
+		textScrollList -edit -removeIndexedItem $selectedIndex[0] $controlPathIDs;
+		
+		int $numItems = `textScrollList -query -numberOfItems $controlPath`;
+		
+		if ( 0 != $numItems )
+		{
+			if ( $selectedIndex[0] <= $numItems )
+			{
+				textScrollList -edit -selectIndexedItem $selectedIndex[0] $controlPath;
+				textScrollList -edit -selectIndexedItem $selectedIndex[0] $controlPathIDs;
+			}
+			else
+			{
+				textScrollList -edit -selectIndexedItem $numItems $controlPath;
+				textScrollList -edit -selectIndexedItem $numItems $controlPathIDs;
+			}
+		}
+	}
+	
+	mpUITabMainOperationsUpdate( $parentLayout );
+	mpUITabMainModelPropertiesFrameUpdate( $parentLayout );
+}
+
+//--------------------------------------------------------------------------------------------
+/** @author Jeff Cotton
+ *  @date   08/20/2004
+ *  @brief  Command for the file browse dialog
+ */
+global proc mpUITabMainFileBrowserCommand( string $parentLayout, string $path, string $fileType )
+{
+	if ( "" != $path )
+	{
+		string $directory = dirname( $path );
+		
+		// if we don't have a file extension then add one
+		if ( "" == fileExtension( $path ) )
+		{
+			string $filename      = basenameEx( $path );
+			int    $projectNumber = 0;
+			string $strCompressed = `optionMenuGrp -query -value ( $parentLayout + "|TabMain|ProjectSettingsLayout|MainFormLayout|DefaultFormatMenu" )`;
+			string $type          = "model" + ( "compressed" == $strCompressed ? "c" : "" );
+			$path = $directory + "/" + $filename + "." + mpFileExtension( $type );
+		}
+		
+		$fileID = `mpModelOpen $path`;
+		mpUITabMainFileListUpdate( $parentLayout );
+		mpUITabMainFileListSetSelection( $parentLayout, $fileID );
+		
+		optionVar -stringValue "MonolithTabbedPanel.TabMain.LastOpenedFileLocation" $directory;
+	}
+}
+
+//--------------------------------------------------------------------------------------------
+/** @author Jeff Cotton
+ *  @date   08/20/2004
+ *  @brief  Command for the Open Button
+ *
+ *  @note uses windows specific fileBrowserDialog for added features.
+ */
+global proc mpUITabMainOpenButtonCommand( string $parentLayout )
+{
+	string $oldWorkspace    = `workspace -query -dir`;
+	string $projectBasePath = `mpBasePath -query -project`;
+	
+	if ( `optionVar -exists "MonolithTabbedPanel.TabMain.LastOpenedFileLocation"` )
+	{
+		string $dirTest = `optionVar -query "MonolithTabbedPanel.TabMain.LastOpenedFileLocation"`;
+		if ( `filetest -d $dirTest` )
+		{
+			$projectBasePath = $dirTest;
+		}
+	}
+	
+	workspace -dir $projectBasePath;
+	
+	fileBrowserDialog -mode        0
+	                  -fileCommand ( "mpUITabMainFileBrowserCommand \"" + $parentLayout + "\"" )
+	                  -actionName  "Open"
+	                  -dialogStyle 0
+	                  -windowTitle "Open Monolith Model File"
+	                  -filterList  "Monolith Model File,*.Model00a;*.Model00c";
+	
+	workspace -dir $oldWorkspace;
+}
+
+//--------------------------------------------------------------------------------------------
+/** @author Jeff Cotton
+ *  @date   08/20/2004
+ *  @brief  Command for the NewButton
+ *
+ *  @note uses windows specific fileBrowserDialog for added features.
+ */
+global proc mpUITabMainNewButtonCommand( string $parentLayout )
+{
+	string $oldWorkspace    = `workspace -query -dir`;
+	string $projectBasePath = `mpBasePath -query -project`;
+	
+	if ( `optionVar -exists "MonolithTabbedPanel.TabMain.LastOpenedFileLocation"` )
+	{
+		string $dirTest = `optionVar -query "MonolithTabbedPanel.TabMain.LastOpenedFileLocation"`;
+		if ( `filetest -d $dirTest` )
+		{
+			$projectBasePath = $dirTest;
+		}
+	}
+	
+	workspace -dir $projectBasePath;
+	
+	fileBrowserDialog -mode        1
+	                  -fileCommand ( "mpUITabMainFileBrowserCommand \"" + $parentLayout + "\"" )
+	                  -actionName  "Open"
+	                  -dialogStyle 0
+	                  -windowTitle "Create Monolith Model File"
+	                  -filterList  "Monolith Model File,*.Model00a;*.Model00c";
+	
+	workspace -dir $oldWorkspace;
+}
+
+//--------------------------------------------------------------------------------------------
+/** @author Jeff Cotton
+ *  @date   08/20/2004
+ *  @brief  Command for the Flush Button
+ */
+global proc mpUITabMainFlushButtonCommand( string $parentLayout )
+{
+	int $fileID = mpUITabMainFileListGetSelectedFileID( $parentLayout );
+	
+	if ( -1 != $fileID )
+	{
+		mpModelFlush -id $fileID;
+	}
+}
+
+//--------------------------------------------------------------------------------------------
+/** @author Jeff Cotton
+ *  @date   08/20/2004
+ *  @brief  Command for the Close Button
+ */
+global proc mpUITabMainCloseButtonCommand( string $parentLayout )
+{
+	int $fileID = mpUITabMainFileListGetSelectedFileID( $parentLayout );
+	
+	if ( -1 != $fileID )
+	{
+		mpUITabMainFileListRemoveSelectedItem( $parentLayout );
+		mpModelClose -id $fileID;
+	}
+}
+
+//--------------------------------------------------------------------------------------------
+/** @author Jeff Cotton
+ *  @date   11/11/2004
+ *  @brief  Command for the Reload Button
+ */
+global proc mpUITabMainReloadButtonCommand( string $parentLayout )
+{
+	int $fileID = mpUITabMainFileListGetSelectedFileID( $parentLayout );
+	
+	if ( -1 != $fileID )
+	{
+		string $selectedFilePath = mpUITabMainFileListGetSelectedFilename( $parentLayout );
+		mpUITabMainCloseButtonCommand( $parentLayout );
+		$fileID = `mpModelOpen $selectedFilePath`;
+		mpUITabMainFileListUpdate( $parentLayout );
+		mpUITabMainFileListSetSelection( $parentLayout, $fileID );
+	}
+}
+
+//--------------------------------------------------------------------------------------------
+/** @author Jeff Cotton
+ *  @date   11/11/2004
+ *  @brief  Command for the Reload Button
+ */
+global proc mpUITabMainPackButtonCommand( string $parentLayout )
+{
+	int $fileID = mpUITabMainFileListGetSelectedFileID( $parentLayout );
+	
+	if ( -1 != $fileID )
+	{
+		int   $bDoPacking = true;
+		string $toolsPath = `mpBasePath -tools -query`;
+		
+			
+		// if the tools path is empty than notify the user.
+		if ( "" == $toolsPath )
+		{
+			mpNotifyDialog( "Error!",
+			                "You must first set your Tools path in the UI or with mpBasePath -tools",
+			                { "OK" },
+			                "OK",
+			                "OK",
+			                "Skipping pack operation: Valid tools path is not set",
+			                false );
+			
+			$bDoPacking = false;
+		}
+		else
+		{
+			// if winpacker does not exist in the tools directory the notify the user
+			if ( !`filetest -x ( $toolsPath + "Winpacker.exe" )` )
+			{
+				mpNotifyDialog( "Error!",
+				                ( "Winpacker not found in: " + encodeString( $toolsPath ) ),
+				                { "OK" },
+				                "OK",
+				                "OK",
+				                ( "Skipping pack operation: Winpacker not found in: " + encodeString( $toolsPath ) ),
+				                false );
+				
+				$bDoPacking = false;
+			}
+			else
+			{
+				// if a packers directory does not exist under the tools directory then notify the user
+				if ( !`filetest -d ( $toolsPath + "packers" )` )
+				{
+					mpNotifyDialog( "Error!",
+					                ( "packers directory not found in: " + encodeString( $toolsPath ) ),
+					                { "OK" },
+					                "OK",
+					                "OK",
+					                ( "Skipping pack operation: packers directory not found in: " + encodeString( $toolsPath ) ),
+					                false );
+					
+					$bDoPacking = false;
+				}
+			}
+		}
+		
+		if ( $bDoPacking )
+		{
+			string $filePath = mpModelGetFilenameFromID( $fileID );
+			$filePath = substituteAllString( $filePath, "/", "\\" );
+			
+			string $command = ( $toolsPath + "Winpacker -PackerDir \"" + $toolsPath + "packers\" -File \"" + $filePath + "\" -SkipPropDlg -NoPauseWhenDone" );
+			
+			// catch any errors thrown be the system call, if it throws an error then notify the user.
+			//print ( $command + "\n" );
+			if ( catch ( `system $command` ) )
+			{
+				mpNotifyDialog( "Error!",
+				                "External pack operation Failed: " + $command,
+				                { "OK" },
+				                "OK",
+				                "OK",
+				                "External pack operation Failed: " + $command,
+				                false );
+			}
+		}
+	}
+}
+
+//--------------------------------------------------------------------------------------------
+/** @author Jeff Cotton
+ *  @date   09/07/2004
+ *  @brief  
+ */
+global proc mpUITabFileIDListSelectCommand( string $parentTabLayout )
+{
+	string $controlPath    = $parentTabLayout + "|TabMain|FileList";
+	string $controlPathIDs = $parentTabLayout + "|TabMain|FileIDList";
+	
+	int $selectedIndex[] = `textScrollList -query -selectIndexedItem $controlPathIDs`;
+	textScrollList -edit -selectIndexedItem $selectedIndex[0] $controlPath;
+	
+	mpUITabMainOperationsUpdate( $parentTabLayout );
+	mpUITabMainModelPropertiesFrameUpdate( $parentTabLayout );
+}
+
+//--------------------------------------------------------------------------------------------
+/** @author Jeff Cotton
+ *  @date   09/07/2004
+ *  @brief  
+ */
+global proc mpUITabFileListSelectCommand( string $parentTabLayout )
+{
+	string $controlPath    = $parentTabLayout + "|TabMain|FileList";
+	string $controlPathIDs = $parentTabLayout + "|TabMain|FileIDList";
+	
+	int $selectedIndex[] = `textScrollList -query -selectIndexedItem $controlPath`;
+	textScrollList -edit -selectIndexedItem $selectedIndex[0] $controlPathIDs;
+	
+	mpUITabMainOperationsUpdate( $parentTabLayout );
+	mpUITabMainModelPropertiesFrameUpdate( $parentTabLayout );
+}
+
+//--------------------------------------------------------------------------------------------
+/** @author Jeff Cotton
+ *  @date   08/18/2004
+ *  @brief  Create the Main tab for the Monolith Tabbed Panel
+ *
+ *   this function requires that a tab layout was previously created and is the current
+ *  layout parent
+ */
+global proc string mpUITabMainCreate()
+{
+	// if the Monolith plug-in is not loaded then bail
+	if ( !`pluginInfo -query -loaded "Monolith.ActionGames"` )
+	{
+		mpConfirmDialog( "ok",
+		                 "Error",
+		                 "", //"Monolith.ActionGames Plug-in not loaded",
+		                 "Monolith.ActionGames Plug-in not loaded",
+		                 false );
+		error( "Monolith.ActionGames Plug-in not loaded" );
+	}
+
+	string $tabMainFormLayout;
+	
+	// confirm that the current parent exists as a tab layout
+	// 	(confirm the parent IS a tabLayout)
+	string $parentTabLayout = `setParent -query`;
+	
+	if ( `tabLayout -exists $parentTabLayout` )
+	{
+		// if the Main tab's scroll layout already exist then delete it so that it can be updated
+		//  if code changed.
+		if( `layout -exists ( $parentTabLayout + "|TabMain" )` )
+		{
+			deleteUI -layout ( $parentTabLayout + "|TabMain" );
+		}
+		
+		$tabMainFormLayout = `formLayout -numberOfDivisions 100 TabMain`;
+		{
+			mpUIEmbedUpdateCommand( "mpUITabMainUpdate( \"" + $parentTabLayout + "\" )" );
+			
+			string $newButton       = `button -label "New"
+			                                  -command ( "mpUITabMainNewButtonCommand( \"" + $parentTabLayout + "\" )" )
+			                                  NewButton`;
+			
+			string $openButton      = `button -label   "Open"
+			                                  -command ( "mpUITabMainOpenButtonCommand( \"" + $parentTabLayout + "\" )" )
+			                                  OpenButton`;
+			
+			string $flushButton     = `button -label "Flush"
+			                                  -command ( "mpUITabMainFlushButtonCommand( \"" + $parentTabLayout + "\" )" )
+			                                  FlushButton`;
+			
+			string $closeButton     = `button -label "Close"
+			                                  -command ( "mpUITabMainCloseButtonCommand( \"" + $parentTabLayout + "\" )" )
+			                                  CloseButton`;
+			
+			string $reloadButton    = `button -label "Reload"
+			                                  -command ( "mpUITabMainReloadButtonCommand( \"" + $parentTabLayout + "\" )" )
+			                                  ReloadButton`;
+			
+			string $packButton      = `button -label "Pack"
+			                                  -command ( "mpUITabMainPackButtonCommand( \"" + $parentTabLayout + "\" )" )
+			                                  PackButton`;
+			
+			string $fileIDList      = `textScrollList -allowMultiSelection     false
+			                                          -allowAutomaticSelection true
+			                                          -width                   10
+			                                          -selectCommand           ( "mpUITabFileIDListSelectCommand( \"" + $parentTabLayout + "\" )" )
+			                                          -deleteKeyCommand        ( "mpUITabMainCloseButtonCommand( \"" + $parentTabLayout + "\" )" )
+			                                          FileIDList`;
+			
+			string $fileList        = `textScrollList -allowMultiSelection     false
+			                                          -allowAutomaticSelection true
+			                                          -selectCommand           ( "mpUITabFileListSelectCommand( \"" + $parentTabLayout + "\" )" )
+			                                          -deleteKeyCommand        ( "mpUITabMainCloseButtonCommand( \"" + $parentTabLayout + "\" )" )
+			                                          FileList`;
+			
+			string $projectSettings = mpUITabMainProjectSettingsFrameCreate( $parentTabLayout );
+			
+			string $modelProperties = mpUITabMainModelPropertiesFrameCreate( $parentTabLayout );
+			
+			formLayout -edit -attachForm     $modelProperties "left"   0
+			                 -attachForm     $modelProperties "right"  0
+			                 -attachForm     $modelProperties "bottom" 0
+			
+			                 -attachForm     $newButton       "left"   0
+			                 -attachControl  $newButton       "bottom" 5 $modelProperties
+			                 
+			                 -attachControl  $openButton      "left"   5 $newButton
+			                 -attachControl  $openButton      "bottom" 5 $modelProperties
+			                 
+			                 -attachControl  $flushButton     "left"   5 $openButton
+			                 -attachControl  $flushButton     "bottom" 5 $modelProperties
+			                 
+			                 -attachControl  $closeButton     "left"   5 $flushButton
+			                 -attachControl  $closeButton     "bottom" 5 $modelProperties
+			
+			                 -attachControl  $reloadButton    "left"   5 $closeButton
+			                 -attachControl  $reloadButton    "bottom" 5 $modelProperties
+			                 
+			                 -attachControl  $packButton      "left"   5 $reloadButton
+			                 -attachControl  $packButton      "bottom" 5 $modelProperties
+			
+			                 -attachForm     $projectSettings "top"    0
+			                 -attachForm     $projectSettings "left"   0
+			                 -attachForm     $projectSettings "right"  0
+			                 
+			                 -attachForm     $fileList        "left"   20
+			                 -attachControl  $fileList        "top"    0 $projectSettings
+			                 -attachForm     $fileList        "right"  0
+			                 -attachControl  $fileList        "bottom" 5 $openButton
+			                 
+			                 -attachForm     $fileIDList      "left"   0
+			                 -attachControl  $fileIDList      "top"    0 $projectSettings
+			                 -attachControl  $fileIDList      "right"  1 $fileList
+			                 -attachControl  $fileIDList      "bottom" 5 $openButton
+			
+			                 $tabMainFormLayout;
+		}
+		setParent ..;
+		
+		tabLayout -edit -tabLabel $tabMainFormLayout "Main" $parentTabLayout;
+		mpUITabMainUpdate( $parentTabLayout );
+	}
+	
+	return $tabMainFormLayout;
+}
+
+//--------------------------------------------------------------------------------------------
+/** @author Jeff Cotton
+ *  @date   11/11/2004
+ *  @brief  Updates the buttons that perform actions on the main tab
+ */
+global proc mpUITabMainOperationsUpdate( string $parentTabLayout )
+{
+	int $selectedFileID = mpUITabMainFileListGetSelectedFileID( $parentTabLayout );
+	
+	string $basePath                = $parentTabLayout + "|TabMain";
+	string $newButton               = $basePath + "|NewButton";
+	string $openButton              = $basePath + "|OpenButton";
+	string $flushButton             = $basePath + "|FlushButton";
+	string $closeButton             = $basePath + "|CloseButton";
+	string $reloadButton            = $basePath + "|ReloadButton";
+	string $packButton              = $basePath + "|PackButton";
+	
+	int $bEnabled = ( -1 != $selectedFileID ? true : false );
+	int $bNeedsFlush = false;
+	
+	if ( $bEnabled )
+	{
+		catch( $bNeedsFlush = `mpModelFlush -id $selectedFileID -query -dirty` );
+	}
+	
+	control -edit -enable $bEnabled $closeButton;
+	control -edit -enable $bNeedsFlush $flushButton;
+	control -edit -enable $bEnabled $reloadButton;
+	control -edit -enable $bEnabled $packButton;
+}
+
+//--------------------------------------------------------------------------------------------
+/** @author Jeff Cotton
+ *  @date   09/08/2004
+ *  @brief  
+ */
+global proc mpUITabMainUpdate( string $parentTabLayout )
+{
+	int $selectedFileID = mpUITabMainFileListGetSelectedFileID( $parentTabLayout );
+	mpUITabMainFileListUpdate( $parentTabLayout );
+	mpUITabMainFileListSetSelection( $parentTabLayout, $selectedFileID );
+	mpUITabMainOperationsUpdate( $parentTabLayout );
+	mpUITabMainModelPropertiesFrameUpdate( $parentTabLayout );
+}

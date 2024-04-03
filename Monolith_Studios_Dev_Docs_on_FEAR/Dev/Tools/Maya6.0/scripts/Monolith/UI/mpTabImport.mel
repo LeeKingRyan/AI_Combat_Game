@@ -1,0 +1,496 @@
+//--------------------------------------------------------------------------------------------
+/** @file   Monolith/UI/mpTabImport.mel
+ *  @date   08/20/2004
+ *
+ * (c) 1997-2004 Monolith Productions, Inc.  All Rights Reserved
+ */
+//--------------------------------------------------------------------------------------------
+
+source "monolith/mpModelUtility.mel";
+source "monolith/mpModelImport.mel";
+source "monolith/UI/mpTabbedPanel.mel";
+source "monolith/UI/mpTabMain.mel";
+
+//--------------------------------------------------------------------------------------------
+/** @author Jeff Cotton
+ *  @date   08/24/2004
+ *  @brief  Fill that animation list in with the list of animation names in the currently
+ *           selected Monolith Model
+ */
+global proc mpUITabImportOptionsFrameAnimationListUpdate( string $parentUI,
+                                                          string $animations[] )
+{
+	string $controlPath = $parentUI + "|AnimationList";
+	
+	// first empty out the list
+	textScrollList -edit -removeAll $controlPath; 
+	
+	if ( 0 != size( $animations ) )
+	{
+		for ( $animation in $animations )
+		{
+			textScrollList -edit -append $animation $controlPath;
+		}
+		
+		// immediatley select the first animation
+		textScrollList -edit -selectIndexedItem 1 $controlPath;
+	}
+}
+
+//--------------------------------------------------------------------------------------------
+/** @author Jeff Cotton
+ *  @date   08/24/2004
+ *  @brief  Update the Import Option's frame and all children
+ * 
+ *   basically if a model is not selected then the options are disabled
+ */
+global proc mpUITabImportOptionsFrameUpdate( string $tabPath, int $fileID )
+{
+	string $framePath = $tabPath + "|ImportOptionsFrame|Layout";
+	
+	if( `layout -exists $framePath` )
+	{
+		int $bFromSelection = ( ( 0 == size( `ls -selection` ) ) ? false : true );
+		
+		string $rootJoint = mpGetRootJoint( $bFromSelection, true );
+		string $fileRootJoint;
+		string $shapes[];
+		string $sockets[];
+		string $physics[];
+		string $animations[];
+		
+		if ( -1 != $fileID )
+		{
+			catch( $fileRootJoint = `mpModelImportHierarchy -id $fileID -query` );
+			catch( $shapes        = `mpModelImportShape -id $fileID -query` );
+			catch( $sockets       = `mpModelImportSocket -id $fileID -query` );
+			catch( $physics       = `mpModelImportPhysicsShape -id $fileID -query` );
+			catch( $animations    = `mpModelImportAnimation -id $fileID -query` );
+		}
+		
+		int $bSkeletonExists = ( "" == $fileRootJoint ? false : true );
+		int $bSkeleton       = ( "" == $rootJoint ? false : true );
+		int $bShapes         = ( ( 0 == size( $shapes ) || !$bSkeleton ) ? false : true );
+		int $bSockets        = ( ( 0 == size( $sockets ) || !$bSkeleton ) ? false : true );
+		int $bPhysics        = ( ( !mpIsHavokPluginLoaded() || ( 0 == size( $physics ) || !$bSkeleton ) ) ? false : true );
+		int $bAnimations     = ( ( 0 == size( $animations ) || !$bSkeleton ) ? false : true );
+		
+		button -edit -enable $bSkeletonExists ( $framePath + "|AllButton" );
+		button -edit -enable $bSkeletonExists ( $framePath + "|SkeletonButton" );
+		button -edit -enable $bShapes   ( $framePath + "|ShapesButton" );
+		button -edit -enable $bSockets  ( $framePath + "|SocketsButton" );
+		button -edit -enable $bPhysics  ( $framePath + "|PhysicsButton" );
+		textScrollList -edit -enable $bAnimations ( $framePath + "|AnimationList" );
+		mpUITabImportOptionsFrameAnimationListUpdate( $framePath, $animations );
+	}
+}
+
+//--------------------------------------------------------------------------------------------
+/** @author Jeff Cotton
+ *  @date   09/15/2004
+ *  @brief  the command run when the all button is pressed.
+ */
+global proc mpUITabImportAllButtonCommand( string $parentTabLayout, string $parentUI )
+{
+	string $filename = mpUITabMainFileListGetSelectedFilename( $parentTabLayout );
+	int    $fileID;
+	
+	// if we fail to get an id from the filename then bail with an error and 
+	//  alert the user with a popup dialog
+	if ( catchQuiet( $fileID = `mpModelOpen -query -id $filename` ) )
+	{
+		string $message = "Couldn't Get Id For File [" + $filename + "]";
+		
+		mpConfirmDialog( "ok", "Error", "", $message, false );
+		
+		error( $message );
+	}
+	
+	string $shapes[];
+	string $sockets[];
+	string $physics[];
+	string $animations[];
+	
+	catch( $shapes     = `mpModelImportShape -id $fileID -query` );
+	catch( $sockets    = `mpModelImportSocket -id $fileID -query` );
+	catch( $physics    = `mpModelImportPhysicsShape -id $fileID -query` );
+	catch( $animations = `mpModelImportAnimation -id $fileID -query` );
+	
+	int    $bShapes     = ( ( 0 == size( $shapes ) ) ? false : true );
+	int    $bSockets    = ( ( 0 == size( $sockets ) ) ? false : true );
+	int    $bPhysics    = ( ( !mpIsHavokPluginLoaded() || ( 0 == size( $physics ) ) ) ? false : true );
+	int    $bAnimations = ( ( 0 == size( $animations ) ) ? false : true );
+	
+	string $animationToImport[] = `textScrollList -query -selectItem ( $parentUI + "|AnimationList" )`; 
+	
+	mpDoModelImport( $filename,
+	                 true,
+	                 $bShapes,
+	                 $bSockets,
+	                 $bPhysics,
+	                 $bAnimations,
+	                 $animationToImport[0],
+	                 false,
+	                 true,
+	                 false );
+}
+
+//--------------------------------------------------------------------------------------------
+/** @author Jeff Cotton
+ *  @date   09/03/2004
+ *  @brief  
+ */
+global proc mpUITabImportSkeleton( string $parentTabLayout, string $parentUI  )
+{
+	string $filename = mpUITabMainFileListGetSelectedFilename( $parentTabLayout );
+	
+	mpDoModelImport( $filename, 1, 0, 0, 0, 0, "", 0, 0, 0 );
+	mpUITabImportUpdate( $parentTabLayout );
+}
+
+//--------------------------------------------------------------------------------------------
+/** @author Jeff Cotton
+ *  @date   09/03/2004
+ *  @brief  
+ */
+global proc mpUITabImportShapes( string $parentTabLayout, string $parentUI  )
+{
+	string $filename = mpUITabMainFileListGetSelectedFilename( $parentTabLayout );
+	
+	string $selection[] = `ls -selection`;
+	int $bFromSelection = ( 0 == size( $selection ) ? false : true );
+	
+	if ( catchQuiet( mpDoModelImport( $filename, 0, 1, 0, 0, 0, "", $bFromSelection, 0, 0 ) ) )
+	{
+		string $result = mpConfirmDialog( "ok",
+		                                  "Error!",
+		                                  "Internal Failure While Importing Shapes",
+		                                  "Internal Failure While Importing Shapes",
+		                                  false );
+		
+	}
+	
+	select $selection;
+}
+
+//--------------------------------------------------------------------------------------------
+/** @author Jeff Cotton
+ *  @date   09/03/2004
+ *  @brief  
+ */
+global proc mpUITabImportSockets( string $parentTabLayout, string $parentUI  )
+{
+	string $filename = mpUITabMainFileListGetSelectedFilename( $parentTabLayout );
+	
+	string $selection[] = `ls -selection`;
+	int $bFromSelection = ( 0 == size( $selection ) ? false : true );
+	
+	if ( catchQuiet( mpDoModelImport( $filename, 0, 0, 1, 0, 0, "", $bFromSelection, 0, 0 ) ) )
+	{
+		string $result = mpConfirmDialog( "ok",
+		                                  "Error!",
+		                                  "Internal Failure While Importing Sockets",
+		                                  "Internal Failure While Importing Sockets",
+		                                  false );
+		
+	}
+	
+	select $selection;
+}
+
+//--------------------------------------------------------------------------------------------
+/** @author Jeff Cotton
+ *  @date   09/03/2004
+ *  @brief  
+ */
+global proc mpUITabImportPhysics( string $parentTabLayout, string $parentUI  )
+{
+	string $filename = mpUITabMainFileListGetSelectedFilename( $parentTabLayout );
+	
+	string $selection[] = `ls -selection`;
+	int $bFromSelection = ( 0 == size( $selection ) ? false : true );
+	
+	if ( catchQuiet( mpDoModelImport( $filename, 0, 0, 0, 1, 0, "", $bFromSelection, 0, 0 ) ) )
+	{
+		string $result = mpConfirmDialog( "ok",
+		                                  "Error!",
+		                                  "Internal Failure While Importing Physics",
+		                                  "Internal Failure While Importing Physics",
+		                                  false );
+	}
+	
+	select $selection;
+}
+
+//--------------------------------------------------------------------------------------------
+/** @author Jeff Cotton
+ *  @date   09/03/2004
+ *  @brief  
+ */
+global proc mpUITabImportAnimation( string $parentTabLayout, string $parentUI )
+{
+	string $filename    = mpUITabMainFileListGetSelectedFilename( $parentTabLayout );
+	string $animNames[] = `textScrollList -query -selectItem ( $parentUI + "|AnimationList" )`;
+	
+	string $selection[]    = `ls -selection`;
+	int    $bFromSelection = ( 0 == size( $selection ) ? false : true );
+	
+	if ( catchQuiet( mpDoModelImport( $filename, 0, 0, 0, 0, 1, $animNames[0], $bFromSelection, 0, 0 ) ) )
+	{
+		string $result = mpConfirmDialog( "ok",
+		                                  "Error!",
+		                                  "Internal Failure While Importing Animation " + $animNames[0],
+		                                  "Internal Failure While Importing Animation " + $animNames[0],
+		                                  false );
+	}
+	
+	select $selection;
+}
+
+//--------------------------------------------------------------------------------------------
+/** @author Jeff Cotton
+ *  @date   08/23/2004
+ *  @brief  Creates the options frame and all children for the import tab
+ */
+global proc string mpUITabImportOptionsFrameCreate( string $parentTabLayout )
+{
+	// if the Monolith plug-in is not loaded then bail
+	if ( !`pluginInfo -query -loaded "Monolith.ActionGames"` )
+	{
+		mpConfirmDialog( "ok",
+		                 "Error",
+		                 "", //"Monolith.ActionGames Plug-in not loaded",
+		                 "Monolith.ActionGames Plug-in not loaded",
+		                 false );
+		error( "Monolith.ActionGames Plug-in not loaded" );
+	}
+
+	string $importOptionsFrame;
+	
+	string $parentLayout = `setParent -query`;
+	
+	if ( `layout -exists $parentLayout` )
+	{
+		// if the Import tab's Option Frame already exist then delete it so that it can be updated
+		//  if code changed.
+		if( `layout -exists ( $parentLayout + "|ImportOptionsFrame" )` )
+		{
+			deleteUI -layout ( $parentLayout + "|ImportOptionsFrame" );
+		}
+		
+		$importOptionsFrame = `frameLayout -label       "Components"
+		                                   -width       200
+		                                   -collapsable false
+		                                   -borderStyle "etchedIn"
+		                                   ImportOptionsFrame`;
+			
+			string $optionsFormLayout = `formLayout -numberOfDivisions 100
+			                                        Layout`;
+				
+				string $command = "mpUITabImportAllButtonCommand( \"" + $parentTabLayout + "\", \"" + $optionsFormLayout + "\" )";
+				
+				string $allButton         = `button -label   "All"
+				                                    -align   "left"
+				                                    -command $command
+				                                    AllButton`;
+				
+				string $command = "mpUITabImportSkeleton( \"" + $parentTabLayout + "\", \"" + $optionsFormLayout + "\" )";
+				
+				string $skeletonButton    = `button -label   "Skeleton"
+				                                    -align   "left"
+				                                    -command $command
+				                                    SkeletonButton`;
+				
+				string $command = "mpUITabImportShapes( \"" + $parentTabLayout + "\", \"" + $optionsFormLayout + "\" )";
+				
+				string $shapesButton      = `button -label   "Skin"
+				                                    -align   "left"
+				                                    -command $command
+				                                    ShapesButton`;
+				
+				string $command = "mpUITabImportSockets( \"" + $parentTabLayout + "\", \"" + $optionsFormLayout + "\" )";
+				
+				string $socketsButton     = `button -label   "Sockets"
+				                                    -align   "left"
+				                                    -command $command
+				                                    SocketsButton`;
+				
+				string $command = "mpUITabImportPhysics( \"" + $parentTabLayout + "\", \"" + $optionsFormLayout + "\" )";
+				
+				string $physicsButton     = `button -label   "Physics"
+				                                    -align   "left"
+				                                    -command $command
+				                                    PhysicsButton`;
+				
+				string $command = "mpUITabImportAnimation( \"" + $parentTabLayout + "\", \"" + $optionsFormLayout + "\" )";
+				
+				string $animationList = `textScrollList -allowMultiSelection false
+				                                        -height              200
+				                                        -doubleClickCommand $command
+				                                        AnimationList`;
+				
+				formLayout -edit 
+				                 -attachForm     $animationList   "top"    10 
+				                 -attachForm     $animationList   "left"   70
+				                 -attachForm     $animationList   "bottom" 2
+				                 -attachForm     $animationList   "right"  10
+				
+				                 -attachForm     $allButton       "top"    10
+				                 -attachForm     $allButton       "left"   10
+				                 -attachNone     $allButton       "bottom"
+				                 -attachControl  $allButton       "right"  2 $animationList
+				
+				                 -attachControl  $skeletonButton  "top"    10 $allButton
+				                 -attachForm     $skeletonButton  "left"   10
+				                 -attachNone     $skeletonButton  "bottom"
+				                 -attachControl  $skeletonButton  "right"  2 $animationList
+				
+				                 -attachControl  $shapesButton    "top"    2 $skeletonButton
+				                 -attachForm     $shapesButton    "left"   10
+				                 -attachNone     $shapesButton    "bottom" 
+				                 -attachControl  $shapesButton    "right"  2 $animationList
+				
+				                 -attachControl  $socketsButton   "top"    2 $shapesButton
+				                 -attachForm     $socketsButton   "left"   10
+				                 -attachNone     $socketsButton   "bottom" 
+				                 -attachControl  $socketsButton   "right"  2 $animationList
+				
+				                 -attachControl  $physicsButton   "top"    2 $socketsButton
+				                 -attachForm     $physicsButton   "left"   10
+				                 -attachNone     $physicsButton   "bottom" 
+				                 -attachControl  $physicsButton   "right"  2 $animationList
+				
+				                 $optionsFormLayout;
+			setParent ..;
+			
+		setParent ..;
+	}
+	
+	return $importOptionsFrame;
+}
+
+//--------------------------------------------------------------------------------------------
+/** @author Jeff Cotton
+ *  @date   08/24/2004
+ *  @brief  callback function given to the selected file frame so that when a new file is
+ *           selected the main tab can be updated, and we can enable/disable options in the
+ *           import tab
+ */
+global proc mpUITabImportSelectedFileFrameChangeCallback( string $parentTabLayout, string $filename )
+{
+	int $selectedFileID = ( "[No Selection]" == $filename ? -1 : `mpModelOpen -query -id $filename` );
+
+	mpUITabMainFileListSetSelection( $parentTabLayout, $selectedFileID );
+	mpUITabImportUpdate( $parentTabLayout );
+}
+
+//--------------------------------------------------------------------------------------------
+/** @author Jeff Cotton
+ *  @date   08/24/2004
+ *  @brief  Updates the Import tabs UI Elements with the correct values from the main tab
+ *
+ *   basically just disables everything when an no valid file is selected
+ */
+global proc mpUITabImportUpdate( string $parentTabLayout )
+{
+	string $tabPath = ( $parentTabLayout + "|TabImport" );
+	
+	if( `layout -exists $tabPath` )
+	{
+		int    $selectedFileID   = mpUITabMainFileListGetSelectedFileID( $parentTabLayout );
+		string $selectedFilename = mpUITabMainFileListGetSelectedFilename( $parentTabLayout );
+		string $filenames[]      = mpUITabMainFileListGetList( $parentTabLayout );
+		string $callback         = "mpUITabImportSelectedFileFrameChangeCallback \"" + $parentTabLayout + "\"";
+		
+		mpUITabbedPanelSelectedFileFrameUpdate( $tabPath, $filenames, $selectedFilename, $callback );
+		mpUITabImportOptionsFrameUpdate( $tabPath, $selectedFileID );
+	}
+}
+
+//--------------------------------------------------------------------------------------------
+/** @author Jeff Cotton
+ *  @date   08/24/2004
+ *  @brief  get the option string for a call to mpDoModelImport
+ *
+ *   this is kind of a hodge podge right now some gross formating to a string.
+ */
+global proc string mpUITabImportOptionsGetOptions( string $parentUI ) 
+{
+	string $framePath = $parentUI + "|ImportOptionsFrame|Layout";
+
+	int    $bImportHierarchy    = !`checkBox -query -value ( $framePath + "|SkeletonCheckBox" )`;
+	int    $bImportShapes       = `checkBox -query -value ( $framePath + "|ShapesCheckbox" )`;
+	int    $bImportSockets      = `checkBox -query -value ( $framePath + "|SocketsCheckbox" )`;
+	int    $bImportPhysics      = `checkBox -query -value ( $framePath + "|PhysicsCheckbox" )`;
+	int    $bImportAnimation    = `checkBox -query -value ( $framePath + "|AnimationCheckbox" )`;
+	string $animationToImport[] = `textScrollList -query -selectItem ( $framePath + "|AnimationList" )`; 
+	int    $bToSkeleton         = `checkBox -query -value ( $framePath + "|SkeletonCheckBox" )`;
+
+	return $bImportHierarchy + "," + $bImportShapes + "," + $bImportSockets + "," + $bImportPhysics + "," + $bImportAnimation + ",\"" + $animationToImport[0] + "\"," + $bToSkeleton;
+}
+
+//--------------------------------------------------------------------------------------------
+/** @author Jeff Cotton
+ *  @date   08/20/2004
+ *  @brief  Create the Import tab for the Monolith Tabbed Panel
+ *
+ *   this function requires that a tab layout was previously created and is the current
+ *  layout parent
+ */
+global proc string mpUITabImportCreate()
+{
+	// if the Monolith plug-in is not loaded then bail
+	if ( !`pluginInfo -query -loaded "Monolith.ActionGames"` )
+	{
+		mpConfirmDialog( "ok",
+		                 "Error",
+		                 "", //"Monolith.ActionGames Plug-in not loaded",
+		                 "Monolith.ActionGames Plug-in not loaded",
+		                 false );
+		error( "Monolith.ActionGames Plug-in not loaded" );
+	}
+
+	string $tabImportFormLayout;
+	
+	// confirm that the current parent exists as a tab layout
+	// 	(confirm the parent IS a tabLayout)
+	string $parentTabLayout = `setParent -query`;
+	
+	if ( `tabLayout -exists $parentTabLayout` )
+	{
+		// if the Import tab already exist then delete it so that it can be updated
+		//  if code changed.
+		if( `layout -exists ( $parentTabLayout + "|TabImport" )` )
+		{
+			deleteUI -layout ( $parentTabLayout + "|TabImport" );
+		}
+		
+		$tabImportFormLayout = `formLayout -numberOfDivisions 100
+		                                   TabImport`;
+		{
+			mpUIEmbedUpdateCommand( "mpUITabImportUpdate( \"" + $parentTabLayout + "\" )" );
+			
+			string $filenameFrame      = mpUITabbedPanelSelectedFileFrameCreate();
+			string $importOptionsFrame = mpUITabImportOptionsFrameCreate( $parentTabLayout );
+			
+			formLayout -edit -attachForm     $filenameFrame      "top"    0
+			                 -attachForm     $filenameFrame      "left"   0
+			                 -attachNone     $filenameFrame      "bottom"
+			                 -attachForm     $filenameFrame      "right"  0
+			
+			                 -attachControl  $importOptionsFrame "top"    2 $filenameFrame
+			                 -attachForm     $importOptionsFrame "left"   0
+			                 -attachForm     $importOptionsFrame "bottom" 0
+			                 -attachForm     $importOptionsFrame "right"  0
+			
+			                 $tabImportFormLayout;
+		}
+		setParent ..;
+		
+		tabLayout -edit -tabLabel $tabImportFormLayout "Import" $parentTabLayout;
+		
+		mpUITabImportUpdate( $parentTabLayout );
+	}
+	
+	return $tabImportFormLayout;
+}

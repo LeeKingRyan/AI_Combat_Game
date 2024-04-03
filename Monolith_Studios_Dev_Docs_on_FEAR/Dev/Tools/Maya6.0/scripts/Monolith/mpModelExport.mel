@@ -1,0 +1,654 @@
+//--------------------------------------------------------------------------------------------
+/** @file   Monolith/mpModelExport.mel
+ *  @date   08/04/2004
+ *
+ * (c) 1997-2004 Monolith Productions, Inc.  All Rights Reserved
+ */
+//--------------------------------------------------------------------------------------------
+
+source "monolith/mpModelUtility.mel";
+
+//--------------------------------------------------------------------------------------------
+/** @author Jeff Cotton
+ *  @date   09/23/2004
+ *  @return true if the progress window is cancelled
+ */
+proc int mpExportRunCallBack( string $callback, string $title, int $value, string $status )
+{
+	int $bWasCancelled = false;
+	
+	if ( "" != $callback )
+	{
+		string $command = $callback + " " + "\"" + $title + "\" " + $value + " \"" + $status + "\"";
+		print ( $command + "\n" );
+		$bWasCancelled = eval( $command );
+	}
+	
+	return $bWasCancelled;
+}
+
+//--------------------------------------------------------------------------------------------
+/** @author Jeff Cotton
+ *  @date   09/10/2004
+ *  @return Error string to be displayed to the user. Empty if no error occured
+ */
+proc string mpExportHierarchy( string $callback, int $fileID, string $rootJoint, int $bSilent )
+{
+	int $bExportHierarchy = false;
+	
+	string $oldRoot;
+	catch( $oldRoot = `mpModelImportHierarchy -id $fileID -query` );
+	if ( "" == $oldRoot )
+	{
+		$bExportHierarchy = true;
+	}
+	else
+	{
+		int $bCompare = true;
+		
+		// first compare the hierarchies
+		//  if the root joint's name is different then map to the old root name
+		if ( $oldRoot != $rootJoint )
+		{
+			if ( catchQuiet( $bCompare = `mpModelExportHierarchy -compare -id $fileID -mp $rootJoint $oldRoot -silent $rootJoint` ) )
+			{
+				return "Couldn't Compare Hierarchies";
+			}
+		}
+		// otherwise just do a direct compare
+		else
+		{
+			if ( catchQuiet( $bCompare = `mpModelExportHierarchy -compare -id $fileID -silent $rootJoint` ) )
+			{
+				return "Couldn't Compare Hierarchies";
+			}
+		}
+		
+		if ( !$bCompare )
+		{
+			string $result = mpConfirmDialog( "noyes",
+			                                  "Warning!",
+			                                  "Hierarchies are different",
+			                                  "Hierarchies differ, export Hierarchy?",
+			                                  $bSilent );
+			
+			if ( "Yes" == $result )
+			{
+				$bExportHierarchy = true;
+			}
+		}
+	}
+	
+	if ( $bExportHierarchy )
+	{
+		if ( mpExportRunCallBack( $callback, "Exporting...", 3, "Exporting Hierarchy" ) )
+		{
+			if ( catchQuiet( `mpModelExportHierarchy -id $fileID -silent $rootJoint` ) )
+			{
+				return "Couldn't Export Hierarchy";
+			}
+		}
+	}
+	
+	if ( mpExportRunCallBack( $callback, "Exporting...", 5, "Exporting NodeFlags" ) )
+	{
+		if ( catchQuiet( `mpModelExportNodeFlags -id $fileID -silent $rootJoint` ) )
+		{
+			return "Couldn't Export NodeFlags";
+		}
+	}
+	
+	if ( mpExportRunCallBack( $callback, "Exporting...", 6, "Exporting Model Requirements" ) )
+	{
+		if ( catchQuiet( `mpModelExportAnimationWeightSet -id $fileID
+		                                                  -forceweight 0.0
+		                                                  -weightset "Null" $rootJoint` ) )
+		{
+			return "Couldn't Export Null Animation Weightset";
+		}
+		
+		if ( catchQuiet( `mpModelExportAnimationWeightSet -id $fileID
+		                                                      -forceweight 2.0
+		                                                      -weightset "Twitch" $rootJoint` ) )
+		{
+			return "Couldn't Export Twitch Animation Weightset";
+		}
+		
+		string $animList[];
+		catch( $animsList = `mpModelImportAnimation -id $fileID -query` );
+		if ( 0 == size( $animsList ) )
+		{
+			if ( catchQuiet( `mpModelExportAnimation -id $fileID
+			                                         -timelow 0
+			                                         -timehigh 0
+			                                         -bindpose
+			                                         -animation "base"
+			                                         -silent
+			                                         $rootJoint` ) )
+			{
+				return "Couldn't Export Bindpose Animation";
+			}
+		}
+	}
+	
+	return "";
+}
+
+//--------------------------------------------------------------------------------------------
+/** @author Jeff Cotton
+ *  @date   09/10/2004
+ *  @return Error string to be displayed to the user. Empty if no error occured 
+ */
+proc string mpExportSkin( string $callback, int $fileID, string $rootJoint, int $bSilent )
+{
+	int    $bExportSkin = true;
+	string $oldRoot;
+	catch( $oldRoot = `mpModelImportHierarchy -id $fileID -query` );
+	if ( "" == $oldRoot )
+	{
+		$bExportSkin = true;
+	}
+	else
+	{
+		//~ int $bCompare = true;
+		
+		//~ // first compare the hierarchies
+		//~ //  if the root joint's name is different then map to the old root name
+		//~ if ( $oldRoot != $rootJoint )
+		//~ {
+			//~ if ( catchQuiet( $bCompare = `mpModelExportHierarchy -compare -bindpose -id $fileID -mp $rootJoint $oldRoot -silent $rootJoint` ) )
+			//~ {
+				//~ return "Couldn't Compare Hierarchy Bindpose";
+			//~ }
+		//~ }
+		//~ // otherwise just do a direct compare
+		//~ else
+		//~ {
+			//~ if ( catchQuiet( $bCompare = `mpModelExportHierarchy -compare -bindpose -id $fileID -silent $rootJoint` ) )
+			//~ {
+				//~ return "Couldn't Compare Hierarchy Bindpose";
+			//~ }
+		//~ }
+		
+		//~ if ( !$bCompare )
+		//~ {
+			//~ string $result = mpConfirmDialog( "noyes",
+			                                  //~ "Warning!",
+			                                  //~ "Bindpose is different",
+			                                  //~ "Bindpose is different, export Skin anyway?",
+			                                  //~ $bSilent );
+			
+			//~ if ( "Yes" == $result )
+			//~ {
+				//~ $bExportSkin = true;
+			//~ }
+		//~ }
+	}
+	
+	if ( $bExportSkin )
+	{
+		//Kill old data
+		string $oldShapes[];
+		string $oldSkinClusters[];
+		string $oldLODs[];
+		
+		catch ( $oldSkinClusters = `mpModelImportSkinCluster -id $fileID -query` );
+		catch ( $oldShapes       = `mpModelImportShape -id $fileID -query` );
+		catch ( $oldLODs         = `mpModelImportLOD -id $fileID -query -groupnames` );
+		
+		//~ print( "Old Skin Clusters:\n" );
+		//~ print( $oldSkinClusters );
+		
+		//~ print( "Old Shapes:\n" );
+		//~ print( $oldShapes );
+		
+		//~ print( "Old LODs:\n" );
+		//~ print( $oldLODs );
+		
+		for ( $skinCluster in $oldSkinClusters )
+		{
+			if ( catchQuiet( `mpModelExportSkinCluster -id $fileID -remove $skinCluster` ) )
+			{
+				return "Failed Removing Old Skin Clusters";
+			}
+		}
+		for ( $shape in $oldShapes )
+		{
+			if ( catchQuiet( `mpModelExportShape -id $fileID -remove $shape` ) )
+			{
+				return "Failed Removing Old Shapes";
+			}
+		}
+		for ( $oldLOD in $oldLODs )
+		{
+			if ( catchQuiet( `mpModelExportLOD -id $fileID -remove $oldLOD` ) )
+			{
+				return "Failed Removing Old LODs";
+			}
+		}
+		
+		string $shapes[] = mpGetShapes( $rootJoint, $bSilent );
+		
+		//~ print( "Exporting Shapes:\n" );
+		//~ print( $shapes );
+		//~ print( "\n" );
+		
+		if ( size( $shapes ) )
+		{
+			if ( mpExportRunCallBack( $callback, "Exporting...", 10, "Exporting Shapes" ) )
+			{
+				if ( catchQuiet( `mpModelExportShape -id $fileID -silent $shapes` ) )
+				{
+					return "Couldn't Export Shapes";
+				}
+			}
+	
+			if ( mpExportRunCallBack( $callback, "Exporting...", 20, "Exporting ShapeUVs" ) )
+			{
+				if ( catchQuiet( `mpModelExportShapeUVs -id $fileID -silent $shapes` ) )
+				{
+					return "Couldn't Export ShapeUVs";
+				}
+			}
+			
+			if ( mpExportRunCallBack( $callback, "Exporting...", 30, "Exporting SkinClusters" ) )
+			{
+				if ( catchQuiet( `mpModelExportSkinCluster -id $fileID -silent $shapes` ) )
+				{
+					return "Couldn't Export SkinClusters";
+				}
+			}
+			
+			if ( mpExportRunCallBack( $callback, "Exporting...", 40, "Exporting LODs" ) )
+			{
+				//LODS
+				string $LODGroupPaths[];
+				string $unparentedPieces[];
+				
+				for ( $shape in $shapes )
+				{
+					string $parentGroupPaths[] = `listRelatives -path -parent $shape`;
+					if ( 0 == size( $parentGroupPaths ) )
+					{
+						$unparentedPieces[size( $unparentedPieces )] = $shape;
+					}
+					else
+					{
+						$LODGroupPaths = stringArrayCatenate( $LODGroupPaths, $parentGroupPaths );
+					}
+				}
+				
+				// remove the duplicate groups
+				$LODGroupPaths = stringArrayRemoveDuplicates( $LODGroupPaths );
+				
+				for ( $LODGroupPath in $LODGroupPaths )
+				{
+					string $LODPaths[] = `listRelatives -path -children $LODGroupPath`;
+					
+					// export lod groups unless parent of group is world(nothing)
+					if ( !size( ( `listRelatives -path -parent $LODGroupPaths[0]` ) ) == 0 )
+					{
+						string $tokenizedPath[];
+						tokenize $LODGroupPath "|" $tokenizedPath;
+						string $LODGroupName = $tokenizedPath[size( $tokenizedPath ) - 1];
+						
+						if ( catchQuiet( `mpModelExportLOD -id $fileID -lodgroup $LODGroupName $LODPaths` ) )
+						{
+							return ( "Couldn't Export LOD group [" + $LODGroupName + "]" );
+						}
+					}
+					else
+					{
+						for ( $LODPath in $LODPaths )
+						{
+							string $tokenizedPath[];
+							tokenize $LODPath "|" $tokenizedPath;
+							string $LODName = $tokenizedPath[size( $tokenizedPath ) - 1] + "_Group";
+							
+							if ( catchQuiet( `mpModelExportLOD -id $fileID -lodgroup $LODName $LODPath` ) )
+							{
+								return ( "Couldn't Export root LOD group [" + $LODName + "]" );
+							}
+						}
+					}
+				}
+				
+				for ( $piece in $unparentedPieces )
+				{
+					string $piecePath[];
+					tokenize $piece "|" $piecePath;
+					string $pieceName = $piecePath[size( $piecePath ) - 1] + "_Group";
+					
+					if ( catchQuiet( `mpModelExportLOD -id $fileID -lodgroup $pieceName $piece` ) )
+					{
+						return "Couldn't Export UnparentedPiece To LOD group " + $piece;
+					}
+				}
+			}
+		}
+	}
+	
+	return "";
+}
+
+//--------------------------------------------------------------------------------------------
+/** @author Jeff Cotton
+ *  @date   09/10/2004
+ *  @return Error string to be displayed to the user. Empty if no error occured 
+ */
+proc string mpExportSockets( string $callback, int $fileID, string $rootJoint, int $bSilent )
+{
+	//Kill old data
+	string $oldSockets[];
+	
+	catch ( $oldSockets = `mpModelImportSocket -id $fileID -query` );
+	
+	//~ print( "Old Sockets:\n" );
+	//~ print( $oldSockets );
+	
+	for ( $socket in $oldSockets )
+	{
+		if ( catchQuiet( `mpModelExportSocket -id $fileID -remove $socket` ) )
+		{
+			return "Failed Removing Old Sockets";
+		}
+	}
+	
+	string $sockets[] = mpGetSockets( $rootJoint, $bSilent );
+	
+	//~ print( "Exporting Sockets:" );
+	//~ print( $sockets );
+	
+	if ( size( $sockets ) )
+	{
+		if ( mpExportRunCallBack( $callback, "Exporting...", 60, "Exporting Sockets" ) )
+		{
+			if ( catchQuiet( `mpModelExportSocket -id $fileID -silent $sockets` ) )
+			{
+				return "Couldn't Export Sockets";
+			}
+		}
+	}
+	
+	return "";
+}
+
+//--------------------------------------------------------------------------------------------
+/** @author Jeff Cotton
+ *  @date   09/10/2004
+ *  @return Error string to be displayed to the user. Empty if no error occured 
+ */
+proc string mpExportPhysics( string $callback, int $fileID, string $rootJoint, int $bSilent )
+{
+	//Kill old data
+	string $oldShapes[];
+	string $oldConstraints[];
+	
+	catch ( $oldShapes      = `mpModelImportPhysicsShape -id $fileID -query` );
+	catch ( $oldConstraints = `mpModelImportPhysicsConstraint -id $fileID -query` );
+	
+	//~ print( "Old Physics Shapes:\n" );
+	//~ print( $oldShapes );
+	
+	//~ print( "Old Physics Constraints:\n" );
+	//~ print( $oldConstraints );
+	
+	for ( $ii = 0; $ii < size( $oldShapes ); $ii = $ii + 2 )
+	{
+		if ( catchQuiet( `mpModelExportPhysicsShape -id $fileID -remove $oldShapes[$ii] $oldShapes[$ii+1]` ) )
+		{
+			return ( "Failed Removing Old Shape: " + $oldShapes[$ii] + " and " + $oldShapes[$ii+1] );
+		}
+	}
+	for ( $constraint in $oldConstraints )
+	{
+		if ( catchQuiet( `mpModelExportPhysicsConstraint -id $fileID -remove $constraint` ) )
+		{
+			return ( "Failed Removing Old Constraint: " + $constraint );
+		}
+	}
+
+	string $physicsShapes[] = mpGetRigidBodies( $rootJoint, $bSilent );
+	string $constraints[]   = mpGetConstraints( $rootJoint, true );
+	
+	if ( mpExportRunCallBack( $callback, "Exporting...", 70, "Exporting Physics Properties" ) )
+	{
+		if ( catchQuiet( `mpModelExportPhysicsProperties -id $fileID -silent $rootJoint` ) )
+		{
+			return "Couldn't Export Physics Properties";
+		}
+	}
+	
+	//~ print( "Exporting Physics Shapes:" );
+	//~ print( $physicsShapes );
+	
+	if ( size( $physicsShapes ) )
+	{
+		if ( mpExportRunCallBack( $callback, "Exporting...", 75, "Exporting Physics Shapes" ) )
+		{
+			if ( catchQuiet( `mpModelExportPhysicsShape -id $fileID -silent $physicsShapes` ) )
+			{
+				return "Couldn't Export Physics Shapes";
+			}
+		}
+	}
+	
+	//~ print( "Exporting Physics Constraints:" );
+	//~ print( $constraints );
+	
+	if ( size( $constraints ) )
+	{
+		if ( mpExportRunCallBack( $callback, "Exporting...", 80, "Exporting Physics Constraints" ) )
+		{
+			if ( catchQuiet( `mpModelExportPhysicsConstraint -id $fileID -silent $constraints` ) )
+			{
+				return "Couldn't Export Physics Constraints";
+			}
+		}
+	}
+	
+	return "";
+}
+
+//--------------------------------------------------------------------------------------------
+/** @author Jeff Cotton
+ *  @date   09/10/2004
+ *  @param  fileID -
+ *  @param  rootJoint -
+ *  @param  $animationToExport -
+ *  @param  bSilent -
+ *  @return Error string to be displayed to the user. Empty if no error occured 
+ *  @brief  
+ */
+proc string mpExportAnimation( string $callback, int $fileID, string $rootJoint, string $animationToExport, int $bSilent )
+{
+	if ( mpExportRunCallBack( $callback, "Exporting...", 90, "Exporting " + $animationToExport + " Animation" ) )
+	{
+		$minTime = `playbackOptions -query -minTime`;
+		$maxTime = `playbackOptions -query -maxTime`;
+		
+		if ( catchQuiet( `mpModelExportAnimation -id           $fileID
+		                                         -animation    $animationToExport
+		                                         -usetimerange
+		                                         -silent
+		                                         $rootJoint` ) )
+		{
+			return "Couldn't Export " + $animationToExport + " Animation";
+		}
+	}
+	
+	return "";
+}
+
+//--------------------------------------------------------------------------------------------
+/** @author Jeff Cotton
+ *  @date   08/04/2004
+ *  @param  path - relative path from Monolith base path of the model to export.
+ *  @param  bExportShapes -
+ *  @param  bExportSockets -
+ *  @param  bExportPhysics -
+ *  @param  bExportAnimation -
+ *  @param  bFromSelection - true  - selection should be used to determine effected skeleton
+ *                           false - the entire scene is exported
+ *  @param  bCompressed -
+ *  @param  bSilent -
+ *  @brief  Simply step through export commands in order to export a model to Monolith
+ *           format.
+ *
+ *  Displays a prgress window to show operation progress.
+ */
+global proc mpDoModelExport( string $path,
+                             int    $bExportSkin,    
+                             int    $bExportSockets,   
+                             int    $bExportPhysics,   
+                             int    $bExportAnimation, 
+                             string $animationToExport,
+                             int    $bFromSelection,
+                             int    $bCompressed,
+                             int    $bSilent,
+                             int    $bCloseWhenFinished )
+{
+	string $errorMessage;
+	string $rootJoint = mpGetRootJoint( $bFromSelection, $bSilent );
+	
+	if ( "" == $rootJoint )
+	{
+		$errorMessage = "An acceptable root joint could not be found!";
+	}
+	else
+	{
+		// id of the opened file
+		int $fileID = -1;
+		
+		// Start a prgress window
+		string $ELFPathProgressWindow = mpStartProgressWindow( "Exporting..." );
+		string $callback = "mpUpdateProgressWindow " + $ELFPathProgressWindow;
+		
+		// Pretty self descriptive
+		if ( mpExportRunCallBack( $callback, "Exporting...", 0, "Opening Model File" ) )
+		{
+			// try to find an already opened file
+			if ( catchQuiet( $fileID = `mpModelOpen -query -id $path` ) )
+			{
+				// if not then try to open the file
+				if ( catchQuiet( $fileID = `mpModelOpen $path` ) )
+				{
+					$errorMessage = "Couldn't Open File";
+				}
+			}
+			// if the file was already opened, then don't close it when done
+			else
+			{
+				$bCloseWhenFinished = false;
+			}
+			
+			if ( -1 != $fileID && "" == $errorMessage )
+			{
+				$errorMessage = mpExportHierarchy( $callback, $fileID, $rootJoint, $bSilent );
+				
+				if ( $bExportSkin && "" == $errorMessage )
+				{
+					$errorMessage = mpExportSkin( $callback, $fileID, $rootJoint, $bSilent );
+				}
+				
+				if ( $bExportSockets && "" == $errorMessage )
+				{
+					$errorMessage = mpExportSockets( $callback, $fileID, $rootJoint, $bSilent );
+				}
+				
+				if ( $bExportPhysics && "" == $errorMessage )
+				{
+					if ( mpIsHavokPluginLoaded() )
+					{
+						$errorMessage = mpExportPhysics( $callback, $fileID, $rootJoint, $bSilent );
+					}
+				}
+				
+				if ( $bExportAnimation && "" == $errorMessage )
+				{
+					$errorMessage = mpExportAnimation( $callback, $fileID, $rootJoint, $animationToExport, $bSilent );
+				}
+				
+				if ( "" == $errorMessage )
+				{
+					if ( mpExportRunCallBack( $callback, "Exporting...", 95, "Flushing" ) )
+					{
+						if ( catchQuiet( `mpModelFlush -id $fileID` ) )
+						{
+							$errorMessage = "Couldn't Flush";
+						}
+					}
+				}
+				
+				if ( $bCloseWhenFinished )
+				{
+					mpExportRunCallBack( $callback, "Exporting...", 99, "Closing Model File" );
+					mpModelClose -id $fileID -silent;
+				}
+			}
+		}
+		
+		// end the progress window, If the window was cancelled then cleanup
+		if ( mpEndProgressWindow( $ELFPathProgressWindow ) )
+		{
+			// @todo some cleanup stuff here ????
+		}
+	}
+	
+	if ( "" != $errorMessage )
+	{
+		mpConfirmDialog( "ok", "Export Error!", $errorMessage, $errorMessage, $bSilent );
+	}
+}
+
+//--------------------------------------------------------------------------------------------
+/** @author Jeff Cotton
+ *  @date   08/04/2004
+ *  @param  path - relative path from Monolith base path of the model to export.
+ *  @param  bCompressed - if true saves in compressed format
+ *  @param  bSilent - 
+ *  @brief  Wrapper function for mpDoModelExport with $bFromSelection set to false
+ */
+global proc mpModelExport( string $path, int $bCompressed, int $bSilent )
+{
+	mpDoModelExport( $path, true, true, true, true, "base", false, $bCompressed, $bSilent, true );
+}
+
+//--------------------------------------------------------------------------------------------
+/** @author Jeff Cotton
+ *  @date   08/04/2004
+ *  @param  path - relative path from Monolith base path of the model to export.
+ *  @param  bCompressed - if true saves in compressed format
+ *  @param  bSilent - 
+ *  @brief  Wrapper function for mpDoModelExport with $bFromSelection set to false
+ */
+global proc mpModelExportPhysics( string $path, int $bCompressed, int $bSilent )
+{
+	mpDoModelExport( $path, false, false, true, false, "base", false, $bCompressed, $bSilent, true );
+}
+
+//--------------------------------------------------------------------------------------------
+/** @author Jeff Cotton
+ *  @date   08/04/2004
+ *  @param  path - relative path from Monolith base path of the model to export.
+ *  @param  bCompressed - if true saves in compressed format
+ *  @param  bSilent - 
+ *  @brief  Wrapper function for mpDoModelExport with $bFromSelection set to true
+ */
+global proc mpModelExportFromSelection( string $path, int $bCompressed, int $bSilent )
+{
+	mpDoModelExport( $path, true, true, true, true, "base", true, $bCompressed, $bSilent, true );
+}
+
+//--------------------------------------------------------------------------------------------
+/** @author Jeff Cotton
+ *  @date   08/04/2004
+ *  @param  path - relative path from Monolith base path of the model to export.
+ *  @param  bCompressed - if true saves in compressed format
+ *  @param  bSilent - 
+ *  @brief  Wrapper function for mpDoModelExport with $bFromSelection set to true
+ */
+global proc mpModelExportPhysicsFromSelection( string $path, int $bCompressed, int $bSilent )
+{
+	mpDoModelExport( $path, false, false, true, false, "base", true, $bCompressed, $bSilent, true );
+}

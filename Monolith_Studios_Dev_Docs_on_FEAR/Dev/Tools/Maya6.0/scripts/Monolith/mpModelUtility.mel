@@ -1,0 +1,1305 @@
+//--------------------------------------------------------------------------------------------
+/** @file   Monolith/mpModelUtility.mel
+ *  @date   08/03/2004
+ *
+ * (c) 1997-2004 Monolith Productions, Inc.  All Rights Reserved
+ */
+//--------------------------------------------------------------------------------------------
+
+//--------------------------------------------------------------------------------------------
+/** @author Jeff Cotton
+ *  @date   08/25/2004
+ *  @param  $fileID - The ID of the opened file to 
+ *  @return the opened filename associated with the file ID
+ *  @brief  gets an open filename from an id.
+ *
+ *  @note will thow an error if the ID is not found
+ *
+ */
+global proc string mpModelGetFilenameFromID( int $fileID )
+{
+	string $filenames[] = `mpModelOpen -query -files`;
+	
+	for ( $filename in $filenames )
+	{
+		if ( $fileID == `mpModelOpen -query -id $filename` )
+		{
+			return $filename;
+		}
+	}
+	
+	error( "ID not found" );
+}
+
+//--------------------------------------------------------------------------------------------
+/** @author Jeff Cotton
+ *  @date   08/25/2004
+ *  @param  type - a string identifing the type of dialog box to show the user
+ *  @param  title - the title of the dialog box
+ *  @param  message - message to print as a warning in silent mode
+ *  @param  question - message the user sees in the dialog box
+ *  @param  bSilent - silent mode flag
+ *  @return the string of the default button in silent mode, or the string of the
+ *           button that the user pressed.
+ *  @brief  Simplify silent user input.
+ *
+ *   Opens a modal dialog box for the user to interact with if bSilent is false. If it is
+ *  true then a warning message is printed to the console, and the default action is returned.
+ *  Support types:
+ *   ok - a simply 1 button box that will return "OK"
+ *   continue - a simply 1 button box that will return "Continue"
+ *   yesno - a 2 button box that will return "Yes" or "No" based on user input. will return
+ *            "Yes" in Silent mode
+ *   noyes - a 2 button box that will return "Yes" or "No" based on user input. will return
+ *            "No" in Silent mode
+ */
+global proc string mpConfirmDialog( string $type,
+                                    string $title,
+                                    string $message,
+                                    string $question,
+                                    int    $bSilent )
+{
+	string $lowerType = tolower( $type );
+	
+	if ( $bSilent )
+	{
+		if ( "" != $message )
+		{
+			warning( $message );
+		}
+		
+		switch ( $lowerType )
+		{
+			case "ok":       return "OK";       break;
+			case "continue": return "Continue"; break;
+			case "noyes":    return "No";       break;
+			case "yesno":    return "Yes";      break;
+			default:         return "";
+		}
+	}
+	else
+	{
+		switch ( $lowerType )
+		{
+			case "ok":
+			{
+				return `confirmDialog -title         $title
+				                      -message       $question
+				                      -button        "OK"
+				                      -defaultButton "OK"
+				                      -cancelButton  "OK"`;
+			}
+			break;
+			
+			case "continue":
+			{
+				return `confirmDialog -title         $title
+				                      -message       $question
+				                      -button        "Continue"
+				                      -defaultButton "Continue"
+				                      -cancelButton  "Continue"`;
+			}
+			break;
+			
+			case "yesno":
+			{
+				return `confirmDialog -title         $title
+				                      -message       $question
+				                      -button        "Yes"
+				                      -button        "No"
+				                      -defaultButton "Yes"
+				                      -cancelButton  "No"`;
+			}
+			break;
+			
+			case "noyes":
+			{
+				return `confirmDialog -title         $title
+				                      -message       $question
+				                      -button        "Yes"
+				                      -button        "No"
+				                      -defaultButton "No"
+				                      -cancelButton  "No"`;
+			}
+			break;
+			
+			default:
+				warning( "Confirm Dialog Box Type Unknown: [" + $type + "]" );
+				return "";
+		}
+	}
+}
+
+//--------------------------------------------------------------------------------------------
+/** @author Jeff Cotton
+ *  @date   08/09/2004
+ *  @return the elf path of the new ProgressWindow
+ *  @brief  Update fields in the progress bar
+ */
+proc string mpSetupProgressWindow()
+{
+	if ( `window -exists "MonolithProgressWindow"` )
+	{
+		//~ warning "Deleting old Monolith Progress Window";
+		deleteUI "MonolithProgressWindow";
+	}
+	
+	// Create the Progress Window
+	string $progressWindow = `window -maximizeButton false
+	                                 -minimizeButton false
+	                                 //~ -toolbox        true
+	                                 -sizeable       false
+	                                 -width          248
+	                                 -height         80
+	                                 -retain         
+	                                 "MonolithProgressWindow"`;
+	
+	string $parentLayout = `formLayout -numberOfDivisions 100 Layout`;
+	{
+		string $statusControl = `text Status`;
+		
+		// Start a progress window
+		string $progressBarControl = `progressBar -isInterruptable   true
+		                                          ProgressBar`;
+		
+		formLayout -edit -attachForm    $statusControl "top"    4
+		                 -attachForm    $statusControl "left"   20
+		                 -attachNone    $statusControl "bottom"
+		                 -attachForm    $statusControl "right"  20
+		                 
+		                 -attachControl $progressBarControl "top"    5 $statusControl
+		                 -attachForm    $progressBarControl "left"   20
+		                 -attachForm    $progressBarControl "bottom" 8
+		                 -attachForm    $progressBarControl "right"  20
+		                 
+		                 $parentLayout;
+	}
+	
+	window -edit -width 248 -height 82 $progressWindow;
+	
+	return $progressWindow;
+}
+
+mpSetupProgressWindow();
+
+//--------------------------------------------------------------------------------------------
+/** @author Jeff Cotton
+ *  @date   08/09/2004
+ *  @param  title - the action word in the title. i.e. importing, exporting
+ *  @brief  Update fields in the progress bar
+ */
+global proc string mpStartProgressWindow( string $title )
+{
+	// This is defined on maya startup 
+	global string $gMainProgressBar;
+	
+	window -edit -title $title "MonolithProgressWindow";
+	
+	// Start a Main prgress bar on the Maya Window
+	progressBar -edit -isMainProgressBar true
+	                  -beginProgress     
+	                  -progress          0
+	                  -status            "Starting..."
+	                  -isInterruptable   true
+	                  $gMainProgressBar;
+	
+	showWindow "MonolithProgressWindow";
+	
+	return "MonolithProgressWindow";
+}
+
+//--------------------------------------------------------------------------------------------
+/** @author Jeff Cotton
+ *  @date   08/09/2004
+ *  @param  title - the action word in the title. i.e. importing, exporting
+ *  @param  progress - the percent done to display in the window
+ *  @param  strStatus - the status string to show in the window
+ *  @return bool - false (0) if window has been cancelled true (1) otherwise
+ *  @brief  Update fields in the progress bar
+ */
+global proc int mpUpdateProgressWindow( string $ELFPath,
+                                        string $title,
+                                        int    $progress,
+                                        string $strStatus )
+{
+	// This is defined on maya startup 
+	global string $gMainProgressBar;
+	
+	string $ELFPathProgressBar = $ELFPath + "|Layout|ProgressBar";
+	string $ELFPathStatus      = $ELFPath + "|Layout|Status";
+	
+	// only update if the window is NOT cancelled
+	if ( !`progressBar -query -isCancelled $ELFPathProgressBar` )
+	{
+		window -edit -title $title $ELFPath;
+		
+		progressBar -edit -progress $progress
+		                  -status   $strStatus
+		                  $ELFPathProgressBar;
+		
+		text -edit -label $strStatus $ELFPathStatus;
+	}
+	
+	// check the main progress bar and see if it's cancelled
+	if ( !`progressBar -query -isCancelled $gMainProgressBar` )
+	{
+		// update the main progress bar if it is not cancelled
+		progressBar -edit -isMainProgressBar true 
+		                  -progress          $progress
+		                  -status            $strStatus
+		                  $gMainProgressBar;
+	}
+	
+	return !( `progressBar -query -isCancelled $ELFPathProgressBar` ||
+	          `progressBar -query -isCancelled $gMainProgressBar` );
+}
+
+//--------------------------------------------------------------------------------------------
+/** @author Jeff Cotton
+ *  @date   08/09/2004
+ *  @return bool - false (0) if window has been cancelled true (1) otherwise
+ *  @brief  Update fields in the progress bar
+ */
+global proc int mpEndProgressWindow( string $ELFPath )
+{
+	// This is defined on maya startup 
+	global string $gMainProgressBar;
+	
+	string $ELFPathProgressBar = $ELFPath + "|Layout|ProgressBar";
+	
+	// Get the cancelled state of the control
+	int $bWasCancelled;
+	$bWasCancelled = ( `progressBar -query -isCancelled $ELFPathProgressBar ` ||
+	                   `progressBar -query -isCancelled $gMainProgressBar` );
+	
+	// End the progress
+	progressBar -edit -endProgress $ELFPathProgressBar ;
+	
+	// End the progress of the main progress bar
+	progressBar -edit -endProgress $gMainProgressBar ;
+	
+	// this reset the floating progress window.
+	mpSetupProgressWindow();
+	
+	// return whether the progress window was cancelled
+	return $bWasCancelled;
+}
+
+//--------------------------------------------------------------------------------------------
+/** @author Jeff Cotton
+ *  @date   08/09/2004
+ *  @param  bFromSelection - true to use the current selection otherwise search entire scene
+ *  @param  bSilent - if false a user dialog will be presented in the case of an error
+ *  @return string - root joint (nothing if a root joint doesn't exist)
+ *  @brief  Gets a root joint from the scene, or a selection
+ */
+global proc string mpGetRootJoint( int $bFromSelection, int $bSilent )
+{
+	string $joints[];
+	string $selection[] = `ls -selection`;
+	int    $bFromSelection = size( $selection );
+	
+	if ( $bFromSelection )
+	{
+		for ( $node in $selection )
+		{
+			string $curNode   = $node;
+			string $parents[] = `listRelatives -path -parent $curNode`;
+			while ( size( $parents ) )
+			{
+				$curNode = $parents[0];
+				$parents = `listRelatives -path -parent $curNode`;
+			}
+			
+			if ( "joint" == `nodeType $curNode` )
+			{
+				$joints[size( $joints )] = $curNode;
+			}
+		}
+	}
+	else
+	{
+		$joints = `ls -dag -type joint`;
+	}
+	
+	$joints = stringArrayRemoveDuplicates( $joints );
+	
+	// report an error if no root joint was found
+	if ( !size( $joints ) )
+	{
+		string $message = $bFromSelection ? "No root joint found in selection" : "No root joint found in scene";
+		
+		mpConfirmDialog( "ok",
+		                 "Error!",
+		                 "", //$message,
+		                 $message,
+		                 $bSilent );
+		
+		return "";
+	}
+	
+	return $joints[0];
+}
+
+
+//--------------------------------------------------------------------------------------------
+/** @author Jeff Cotton
+ *  @date   08/04/2004
+ *  @param  rootJoint - joint to find all joint decendants of
+ *  @param  bSilent - if false a user dialog will be presented if no joints are found
+ *  @return string[] - string array containing all joints decended from the root joint
+ *  @brief  Gets a string array of decendant joint nodes from the root joint
+ */
+global proc string[] mpGetJoints( string $rootJoint, int $bSilent )
+{
+	string $joints[];
+	
+	if ( $rootJoint != "" )
+	{
+		$joints = `listRelatives -path -allDescendents -type "joint" $rootJoint`;
+	}
+	
+	$joints = stringArrayRemoveDuplicates( $joints );
+	
+	// report a warning if no joints were found
+	if ( !size( $joints ) )
+	{
+		mpConfirmDialog( "continue",
+		                 "Warning",
+		                 "", //"No joints found for skeleton",
+		                 "No joints found for skeleton",
+		                 $bSilent );
+	}
+	
+	return $joints;
+}
+
+//--------------------------------------------------------------------------------------------
+/** @author Jeff Cotton
+ *  @date   08/04/2004
+ *  @param  rootJoint - joint to find all skin cluster connections to
+ *  @param  bSilent - if false a user dialog will be presented if no skin clusters are found
+ *  @return string[] - list of skin cluster nodes (empty if no skins cluster nodes are
+ *                      connected to this skeleton)
+ *  @brief  Gets all skin clusters connected to a skeleton
+ */
+global proc string[] mpGetSkinClusters( string $rootJoint, int $bSilent )
+{
+	string $skinClusters[];
+	string $joints[] = mpGetJoints( $rootJoint, $bSilent );
+	
+	for ( $joint in $joints )
+	{
+		string $clusters[] = `listConnections -source false -destination true -type "skinCluster" $joint`;
+		$skinClusters = stringArrayCatenate( $skinClusters, $clusters );
+	}
+	
+	$skinClusters = stringArrayRemoveDuplicates( $skinClusters );
+	
+	// report a warning if no skin clusters were found
+	if ( !size( $skinClusters ) )
+	{
+		mpConfirmDialog( "continue",
+		                 "Warning",
+		                 "", //"No skin clusters found on skeleton",
+		                 "No skin clusters found on skeleton",
+		                 $bSilent );
+	}
+	
+	return $skinClusters;
+}
+
+//--------------------------------------------------------------------------------------------
+/** @author Jeff Cotton
+ *  @date   02/01/2005
+ *  @param  startNodes - origin nodes of the search
+ *  @param  types - types to count as found nodes
+ *  @param  direction - "in", "out", or "both" for connection directions to check 
+ *  @param  bShapes - if true check mesh nodes instead of thier transforms
+ *  @param  count - number of nodes to return from EACH startnode in startNodes
+ *  @return string[] - list of nodes of a given types that are directly/indirectly connected
+ *           to the startNodes
+ *  @brief  see return
+ */
+global proc string[] mpFindConnectedNodes( string $startNodes[],
+                                           string $types[],
+                                           string $direction,
+                                           int    $bShapes,
+                                           int    $count )
+{
+	string $foundNodes[]       = {};
+	int    $totalNumFoundNodes = 0;
+	int    $bSource            = false;
+	int    $bDest              = false;
+	
+	string $loweredDirection = `tolower $direction`;
+	switch ( $loweredDirection )
+	{
+		case "in":   $bSource = true; break;
+		case "out":  $bDest   = true; break;
+		case "both": $bDest   = true; $bSource = true; break;
+		default: error( "Direction not understood [" + $direction + "]. Please use \"in\", \"out\", or \"both\"" );
+	}
+	
+	for ( $startNode in $startNodes )
+	{
+		string $nodes[] = { $startNode };
+		
+		for ( $numFoundNodes = 0, $curNode = 0;
+		      $numFoundNodes < $count && $curNode < size( $nodes );
+		      $curNode = $curNode + 1 )
+		{
+			string $testNode = $nodes[$curNode];
+			
+			//~ print( "TestNode:\n" );
+			//~ print( "Name:   " + $testNode );
+			//~ print( "Type:   " + `objectType $testNode` );
+			//~ print( "\n" );
+			
+			for ( $type in $types )
+			{
+				if ( `objectType -isType $type $testNode` )
+				{
+					$foundNodes[ $totalNumFoundNodes++ ] = $testNode;
+					$numFoundNodes++;
+				}
+			}
+			
+			$nodes = stringArrayRemoveDuplicates( stringArrayCatenate( $nodes, `listConnections -shapes $bShapes -source $bSource -destination $bDest $testNode` ) );
+		}
+	}
+	
+	return $foundNodes;
+}
+
+//--------------------------------------------------------------------------------------------
+/** @author Jeff Cotton
+ *  @date   08/04/2004
+ *  @param  rootJoint - joint to find all shapes connections to
+ *  @param  bSilent - if false a user dialog will be presented if no shpaes are found
+ *  @return string[] - list of shape nodes (empty if no shape nodes are connected to skeleton)
+ *  @brief  Gets all shapes connected to a skeleton (through skin clusters)
+ */
+global proc string[] mpGetShapes( string $rootJoint, int $bSilent )
+{
+	string $shapes[];
+	string $skinClusters[] = mpGetSkinClusters( $rootJoint, $bSilent );
+	
+	//~ print( "mpGetShapes: SkinClusters:\n" );
+	//~ print( $skinClusters );
+	
+	// find the first connected mesh
+	string $meshes[] = mpFindConnectedNodes( $skinClusters, { "mesh" }, "out", true, 1 );
+	
+	//~ print( "mpGetShapes: Meshes:\n" );
+	//~ print( $meshes );
+	
+	// upgrade the mesh nodes to thier parent transform nodes
+	for ( $mesh in $meshes )
+	{
+		string $parentTransform = firstParentOf( $mesh );
+		
+		if ( "" != $parentTransform )
+		{
+			$shapes[size( $shapes )] = $parentTransform;
+		}
+	}
+	
+	// this should never happen, but just in case we don't want duplicates
+	$shapes = stringArrayRemoveDuplicates( $shapes );
+	
+	//~ print ( "mpGetShapes: Shapes\n" );
+	//~ print ( $shapes );
+	//~ print ( "\n" );
+	
+	// report a warning if no shapes were found
+	if ( !size( $shapes ) )
+	{
+		mpConfirmDialog( "continue",
+		                 "Warning",
+		                 "", //"No shapes found on skeleton",
+		                 "No shapes found on skeleton",
+		                 $bSilent );
+	}
+	
+	return $shapes;
+}
+
+//--------------------------------------------------------------------------------------------
+/** @author Jeff Cotton
+ *  @date   08/04/2004
+ *  @param  rootJoint - joint to find all socket connections to
+ *  @param  bSilent - if false a user dialog will be presented if no sockets are found
+ *  @return string[] - list of socket nodes (empty if no socket nodes are connected to
+ *                      skeleton)
+ *  @brief  Gets all socket nodes connected to skeleton
+ *
+ *   Does error reporting internally.
+ */
+global proc string[] mpGetSockets( string $rootJoint, int $bSilent )
+{
+	string $sockets[];
+	
+	if ( $rootJoint != "" )
+	{
+		$sockets = `listRelatives -path -allDescendents -type mpSocketLocator $rootJoint`;
+	}
+	
+	$sockets = stringArrayRemoveDuplicates( $sockets );
+	
+	// report a warning if no sockets were found
+	if ( !size( $sockets ) )
+	{
+		mpConfirmDialog( "continue",
+		                 "Warning",
+		                 "", //"No sockets found on skeleton",
+		                 "No sockets found on skeleton",
+		                 $bSilent );
+	}
+	
+	return $sockets;
+}
+
+//--------------------------------------------------------------------------------------------
+/** @author Jeff Cotton
+ *  @date   10/06/2004
+ *  @deprecated Use mpGetRigidBodies instead
+ */
+global proc string[] GetPhysicsShapes( string $rootJoint, int $bSilent )
+{
+	string $arrayOfPhysicsShapes[] = {};
+	
+	if ( mpIsHavokPluginLoaded() )
+	{
+		$arrayOfPhysicsShapes = mpGetRigidBodiesmp( $rootJoint, $bSilent );
+	}
+	
+	return $arrayOfPhysicsShapes;
+}
+
+//--------------------------------------------------------------------------------------------
+/** @author Jeff Cotton
+ *  @date   08/04/2004
+ *  @param  rootJoint - joint to find all physics shape connections to
+ *  @param  bSilent - if false a user dialog will be presented if no physics shapes are found
+ *  @return string[] - list of physics shape nodes (empty if no physics shape nodes are
+ *                      connected to skeleton)
+ *  @brief  Gets all physics shapes connedted to skeleton
+ *
+ *   Does error reporting internally.
+ */
+global proc string[] mpGetRigidBodies( string $rootJoint, int $bSilent )
+{
+	string $physicsShapes[];
+	
+	if ( $rootJoint != "" )
+	{
+		$rigidBodies = `listRelatives -path -allDescendents -type "mesh" $rootJoint`;
+		
+		if ( 0 != size( $rigidBodies ) )
+		{
+			$rigidBodies = `listConnections -type hkRigidBodyPrimitive $rigidBodies`;
+			
+			// need to get rid of rigid bodies with 0 mass (i.e. floor)
+			// Move this up a level, this is too specific to be in this function.
+			//~ string $fixedRigidBodies[];
+			//~ for ( $rigidBody in $rigidBodies )
+			//~ {
+				//~ $entity = `listConnections -type "hkRigidBodyEntity" $rigidBody`;
+				//~ if ( getAttr( $entity[0] + ".assignedMass" ) == 0 )
+				//~ {
+					//~ $fixedRigidBodies[size( $fixedRigidBodies )] = $rigidBody;
+				//~ }
+			//~ }
+			//~ $rigidBodies = stringArrayRemove($fixedRigidBodies, $rigidBodies);
+			
+			if ( 0 != size( $rigidBodies ) )
+			{
+				$physicsShapes = `listConnections -source 1 -destination 0 $rigidBodies`;
+			}
+		}
+	}
+	
+	$physicsShapes = stringArrayRemoveDuplicates( $physicsShapes );
+	
+	// report a warning if no physics shapes were found
+	if ( !size( $physicsShapes ) )
+	{
+		mpConfirmDialog( "continue",
+		                 "Warning",
+		                 "", //"No physics shapes found on skeleton",
+		                 "No physics shapes found on skeleton",
+		                 $bSilent );
+	}
+	
+	return $physicsShapes;
+}
+
+//--------------------------------------------------------------------------------------------
+/** @author Jeff Cotton
+ *  @date   08/03/2004
+ *  @param  rootJoint - joint to find all constraint nodes decendant of
+ *  @param  bSilent - if false a user dialog will be presented if no constraints are found
+ *  @return string[] - list of constraints nodes (empty if no constraint nodes are decendants
+ *                      of the root joint)
+ *  @brief  Gets all constraint nodes decendant of a root joint
+ *
+ *   Does error reporting internally.
+ */
+global proc string[] mpGetConstraints( string $rootJoint, int $bSilent )
+{
+	string $constraints[];
+	string $constraintShapes[];
+	
+	if ( $rootJoint != "" )
+	{
+		$constraintShapes = stringArrayCatenate( $constraintShapes, `listRelatives -path -allDescendents -type "hkPointToPointConstraint" $rootJoint` );
+		$constraintShapes = stringArrayCatenate( $constraintShapes, `listRelatives -path -allDescendents -type "hkStiffSpringConstraint" $rootJoint` );
+		$constraintShapes = stringArrayCatenate( $constraintShapes, `listRelatives -path -allDescendents -type "hkHingeConstraint" $rootJoint` );
+		$constraintShapes = stringArrayCatenate( $constraintShapes, `listRelatives -path -allDescendents -type "hkRagdollConstraint" $rootJoint` );
+	}
+	
+	$constraintShapes = stringArrayRemoveDuplicates( $constraintShapes );
+	
+	// move up to the constraint's transform
+	for ( $constraintShape in $constraintShapes )
+	{
+		if ( "" != firstParentOf( $constraintShape ) )
+		{
+			$constraints[size( $constraints )] = mpShortName( firstParentOf( $constraintShape ) );
+		}
+	}
+	
+	// report a warning if no constraints were found
+	if ( !size( $constraints ) )
+	{
+		mpConfirmDialog( "continue",
+		                 "Warning",
+		                 "", //"No constraints found on skeleton",
+		                 "No constraints found on skeleton",
+		                 $bSilent );
+	}
+	
+	return $constraints;
+}
+
+//--------------------------------------------------------------------------------------------
+/** @author Jeff Cotton
+ *  @date   08/26/2004
+ *  @param  rootJoint - joint node that contains the animation name attribute
+ *  @param  bSilent - if true will not require user input to complete otherwise may notify the
+ *                     user of errors/warnings with an interactive dialog box
+ *  @return string - name of the animation on the rootJoint
+ *  @brief  Gets the name of the animation from the root joint
+ */
+global proc string mpGetAnimationName( string $rootJoint, int $bSilent )
+{
+	string $animationName;
+	
+	if( `objExists ( $rootJoint + ".mpAnimationBindingName" )` )
+	{
+		$animationName = `getAttr ( $rootJoint + ".mpAnimationBindingName")`;
+	}
+	
+	return $animationName;
+}
+
+//--------------------------------------------------------------------------------------------
+/** @author Jeff Cotton
+ *  @date   09/14/2004
+ *  @param  animationName - new name for the animation
+ *  @param  rootJoint - joint node that contains the animation name attribute
+ *  @param  bSilent - if true will not require user input to complete otherwise may notify the
+ *                     user of errors/warnings with an interactive dialog box
+ *  @brief  Sets the name of the animation on the root joint
+ */
+global proc mpSetAnimationName( string $animationName, string $rootJoint, int $bSilent )
+{
+	if ( "" != $animationName && "base" != $animationName )
+	{
+		if ( !`objExists ( $rootJoint + ".mpAnimationBindingName" )` )
+		{
+			string $strResult = mpConfirmDialog( "yesno",
+			                                     "Warning",
+			                                     "Creating root joint attributes on [" + $rootJoint + "]",
+			                                     $rootJoint + " does not contain Monolith attributes. Create these?",
+			                                     $bSilent );
+			
+			if ( "Yes" == $strResult )
+			{
+				if ( catchQuiet( `mpModelRoot $rootJoint` ) )
+				{
+					mpConfirmDialog( "ok",
+					                 "Error",
+					                 "Couldn't create attributes on [" + $rootJoint + "]",
+					                 "Couldn't create attributes on [" + $rootJoint + "]",
+					                 $bSilent );
+				}
+			}
+		}
+		
+		if ( `objExists ( $rootJoint + ".mpAnimationBindingName" )` )
+		{
+			setAttr ( $rootJoint + ".mpAnimationBindingName" ) -type "string" $animationName;
+		}
+	}
+}
+
+//--------------------------------------------------------------------------------------------
+/** @author Jeff Cotton
+ *  @date   08/26/2004
+ *  @param  rootJoint - joint node that contains the physics visible node name attribute
+ *  @param  bSilent - if true will not require user input to complete otherwise may notify the
+ *                     user of errors/warnings with an interactive dialog box
+ *  @return string - name of the physics visible node on the rootJoint
+ *  @brief  Gets the name of the physics visible node from the root joint
+ */
+global proc string mpGetPhysicsVisibleNode( string $rootJoint, int $bSilent )
+{
+	string $physicsVisibleNodeName;
+	
+	if( `objExists ( $rootJoint + ".mpPhysicsVisibleNode" )` )
+	{
+		$physicsVisibleNodeName = `getAttr ( $rootJoint + ".mpPhysicsVisibleNode")`;
+	}
+	
+	return $physicsVisibleNodeName;
+}
+
+//--------------------------------------------------------------------------------------------
+/** @author Jeff Cotton
+ *  @date   09/14/2004
+ *  @param  physicsVisibleNodeName - new name for the physics visble node
+ *  @param  rootJoint - joint node that contains the physics visible node name attribute
+ *  @param  bSilent - if true will not require user input to complete otherwise may notify the
+ *                     user of errors/warnings with an interactive dialog box
+ *  @brief  Sets the name of the physics visible node on the root joint
+ */
+global proc mpSetPhysicsVisibleNode( string $physicsVisibleNodeName, string $rootJoint, int $bSilent )
+{
+	if ( !`objExists ( $rootJoint + ".mpPhysicsVisibleNode" )` )
+	{
+		string $strResult = mpConfirmDialog( "yesno",
+		                                     "Warning",
+		                                     "Creating root joint attributes on [" + $rootJoint + "]",
+		                                     $rootJoint + " does not contain Monolith attributes. Create these?",
+		                                     $bSilent );
+		
+		if ( "Yes" == $strResult )
+		{
+			if ( catchQuiet( `mpModelRoot $rootJoint` ) )
+			{
+				mpConfirmDialog( "ok",
+				                 "Error",
+				                 "Couldn't create attributes on [" + $rootJoint + "]",
+				                 "Couldn't create attributes on [" + $rootJoint + "]",
+				                 $bSilent );
+			}
+		}
+	}
+	
+	if ( `objExists ( $rootJoint + ".mpPhysicsVisibleNode" )` )
+	{
+		setAttr ( $rootJoint + ".mpPhysicsVisibleNode" ) -type "string" $physicsVisibleNodeName;
+	}
+}
+
+//--------------------------------------------------------------------------------------------
+/** @author Jeff Cotton
+ *  @date   08/26/2004
+ *  @param  rigidBodyPrimitive - node that contains the shape type attribute
+ *  @param  bSilent - if true will not require user input to complete otherwise may notify the
+ *                     user of errors/warnings with an interactive dialog box
+ *  @return string - type of shape for the rigid body primitive
+ *  @brief  Gets the shape type from a rigid body primitive
+ */
+global proc string mpGetPhysicsShapeType( string $rigidBodyPrimitive, int $bSilent )
+{
+	if( `objExists ( $rigidBodyPrimitive + ".shapeType" )` )
+	{
+		int $value = `getAttr ( $rigidBodyPrimitive + ".shapeType" )`;
+		switch ( $value )
+		{
+			case 0:
+				return "Box";
+			break;
+			case 1:
+				return "Sphere";
+			break;
+			case 2:
+				return "Capsule";
+			break;
+			default:
+				return "Unsupported";
+		}
+	}
+	
+	return "";
+}
+
+//--------------------------------------------------------------------------------------------
+/** @author Jeff Cotton
+ *  @date   09/14/2004
+ *  @param  physicsShapeType - new type of shape for the rigid body primitive
+ *  @param  rigidBodyPrimitive - node that contains the shape type attribute
+ *  @param  bSilent - if true will not require user input to complete otherwise may notify the
+ *                     user of errors/warnings with an interactive dialog box
+ *  @brief  Sets the shape type for a rigid body primitive
+ */
+global proc mpSetPhysicsShapeType( string $physicsShapeType, string $rigidBodyPrimitive, int $bSilent )
+{
+	if ( `objExists ( $rigidBodyPrimitive + ".shapeType" )` )
+	{
+		switch ( `tolower $physicsShapeType` )
+		{
+			case "sphere":
+				setAttr ( $rigidBodyPrimitive + ".shapeType" ) 1;
+			break;
+			case "capsule":
+				setAttr ( $rigidBodyPrimitive + ".shapeType" ) 2;
+			break;
+			default:
+				setAttr ( $rigidBodyPrimitive + ".shapeType" ) 0;
+		}
+	}
+}
+
+//--------------------------------------------------------------------------------------------
+/** @author Jeff Cotton
+ *  @date   09/19/2005
+ *  @brief  returns true if the havok plug-in is loaded
+ */
+global proc int mpIsHavokPluginLoaded()
+{
+	return `pluginInfo -query -loaded "havokExporter"`;
+}
+
+//--------------------------------------------------------------------------------------------
+/** @author Jeff Cotton
+ *  @date   09/15/2004
+ *  @param  bSilent - if false then will report a dialog box error to the user before bailing
+ *  @brief  Bails out of mel script processing if the Monolith plugin isn't loaded
+ */
+global proc mpEnsureHavokPluginLoaded( string $bSilent )
+{
+	// if the Havok plug-in is not loaded then bail
+	if ( !mpIsHavokPluginLoaded() )
+	{
+		mpConfirmDialog( "ok",
+		                 "Error",
+		                 "", //"Havok Plug-in not loaded",
+		                 "Havok Plug-in not loaded",
+		                 $bSilent );
+		
+		error( "Havok Plug-in not loaded" );
+	}
+}
+
+//--------------------------------------------------------------------------------------------
+/** @author Jeff Cotton
+ *  @date   09/19/2005
+ *  @brief  returns true if the Monolith plug-in is loaded
+ */
+global proc int mpIsMonolithPluginLoaded()
+{
+	return `pluginInfo -query -loaded "Monolith.ActionGames"`;
+}
+
+//--------------------------------------------------------------------------------------------
+/** @author Jeff Cotton
+ *  @date   09/15/2004
+ *  @param  bSilent - if false then will report a dialog box error to the user before bailing
+ *  @brief  Bails out of mel script processing if the Monolith plugin isn't loaded
+ */
+global proc mpEnsureMonolithPluginLoaded( string $bSilent )
+{
+	// if the Monolith plug-in is not loaded then bail
+	if ( !mpIsMonolithPluginLoaded() )
+	{
+		mpConfirmDialog( "ok",
+		                 "Error",
+		                 "", //"Monolith.ActionGames Plug-in not loaded",
+		                 "Monolith.ActionGames Plug-in not loaded",
+		                 $bSilent );
+		
+		error( "Monolith.ActionGames Plug-in not loaded" );
+	}
+}
+
+//--------------------------------------------------------------------------------------------
+/** @author Jeff Cotton
+ *  @date   09/27/2004
+ *  @param  path - the partial or full path to a node to get the short name from
+ *  @return the short name of a node given a partial or full path.
+ *  @brief  returns the short name of a node given a partial or full path.
+ */
+global proc string mpRelativePath( string $ancestor, string $decendantPath )
+{
+	string $tokens[];
+		
+	if ( `tokenize $decendantPath "|" $tokens` )
+	{
+		return $tokens[size( $tokens ) - 1];
+	}
+	
+	error( "Invalid path to get a relative path from [" +  $decendantPath + "]" );
+}
+
+//--------------------------------------------------------------------------------------------
+/** @author Jeff Cotton
+ *  @date   09/27/2004
+ *  @param  paths - the partial or full paths to nodes to get the short names from
+ *  @return the short names of the nodes given partial or full paths.
+ *  @brief  returns the short names of the nodes given partial or full paths.
+ */
+global proc string[] mpRelativePaths( string $ancestor, string $decendantPaths[] )
+{
+	string $relativePaths[];
+	
+	for ( $path in $decendantPaths )
+	{
+		if ( "" != $path )
+		{
+			$relativePaths[size( $relativePaths )] = mpRelativePath( $ancestor, $path );
+		}
+	}
+	
+	return $relativePaths;
+}
+
+//--------------------------------------------------------------------------------------------
+/** @author Jeff Cotton
+ *  @date   09/27/2004
+ *  @param  paths - the partial or full paths to nodes to get the short names from
+ *  @return the unique path to a node given an ancestor and the short name of a decendant.
+ *  @brief  returns the unique path to a node given an ancestor and the short name of a
+ *           decendant.
+ * 
+ *   Will throw an error if the more than 1, or no decendant is found 
+ */
+global proc string mpUniquePath( string $ancestor, string $decendantRelativePath )
+{
+	string $hierarchy[]    = `ls -dag $ancestor`;
+	string $matchedNodes[] = `ls $decendantRelativePath`;
+	string $intersection[];
+	
+	string $myIntersector = `stringArrayIntersector`;
+	stringArrayIntersector -edit -intersect $hierarchy $myIntersector;
+	stringArrayIntersector -edit -intersect $matchedNodes $myIntersector;
+	$intersection = `stringArrayIntersector -query $myIntersector`;
+	stringArrayIntersector -edit -reset $myIntersector;
+	deleteUI $myIntersector;
+	
+	if ( size( $intersection ) != 1 )
+	{
+		error( "Ancestor [" + $ancestor + "] and Decendant [" + $decendantRelativePath + "] do not uniquely identify a single node. " + size( $intersection ) + " nodes found" );
+	}
+	
+	return $intersection[0];
+}
+
+//--------------------------------------------------------------------------------------------
+/** @author Jeff Cotton
+ *  @date   10/02/2004
+ *  @param  $joint - joint to find a Rigid Body Entity for
+ *  @brief  Find and return the Rigid Body Entity associated with a joint
+ */
+global proc string mpJointGetRigidBodyEntity( string $joint )
+{
+	string $rigidBodyEntities[];
+	
+	if ( "" != $joint )
+	{
+		string $children[] = `listRelatives -path -children $joint`;
+		
+		if ( size( $children ) )
+		{
+			$rigidBodyEntities = `listConnections -type "hkRigidBodyEntity" $children`;
+		}
+	}
+	
+	if ( 1 < size ( $rigidBodyEntities ) )
+	{
+		warning( "Joint has " + size( $rigidBodyEntities ) + " rigidbody entities. Returning " + $rigidBodyEntities[0] );
+	}
+	
+	return $rigidBodyEntities[0];
+}
+
+//--------------------------------------------------------------------------------------------
+/** @author Jeff Cotton
+ *  @date   10/02/2004
+ *  @param  $joint - joint to find a Rigid Body Primitive for
+ *  @brief  Find and return the Rigid Body Primitive associated with a joint
+ */
+global proc string mpJointGetRigidBodyPrimitive( string $joint )
+{
+	string $rigidBodyPrimitives[];
+	string $rigidBodyEntity = mpJointGetRigidBodyEntity( $joint );
+	
+	if ( "" != $rigidBodyEntity )
+	{
+		$rigidBodyPrimitives = `listConnections -type hkRigidBodyPrimitive $rigidBodyEntity`;
+	}
+	
+	if ( 1 < size ( $rigidBodyPrimitives ) )
+	{
+		warning( "Joint has " + size( $rigidBodyPrimitives ) + " rigidbody primitives. Returning " + $rigidBodyPrimitives[0]  );
+	}
+	
+	return $rigidBodyPrimitives[0];
+}
+
+//--------------------------------------------------------------------------------------------
+/** @author Jeff Cotton
+ *  @date   10/02/2004
+ *  @param  $joint - joint to find a Rigid Body Mesh for
+ *  @brief  Find and return the Rigid Body Mesh associated with a joint
+ */
+global proc string mpJointGetRigidBodyMesh( string $joint )
+{
+	string $meshes[];
+	string $rigidBodyPrimitive = mpJointGetRigidBodyPrimitive( $joint );
+	
+	if ( "" != $rigidBodyPrimitive )
+	{
+		$meshes = `listConnections -shapes true -type "mesh" $rigidBodyPrimitive`;
+	}
+	
+	if ( 1 < size ( $meshes ) )
+	{
+		warning( "Joint has " + size( $meshes ) + " rigidbody primitives. Returning " + $meshes[0]  );
+	}
+	
+	return $meshes[0];
+}
+
+//--------------------------------------------------------------------------------------------
+/** @author Jeff Cotton
+ *  @date   10/02/2004
+ *  @param  $joint - joint to find a Rigid Body Mesh transform from
+ *  @brief  Find and return the Rigid Body Mesh Transform associated with a joint
+ */
+global proc string mpJointGetRigidBody( string $joint )
+{
+	string $transforms[];
+	string $rigidBodyEntity = mpJointGetRigidBodyEntity( $joint );
+	
+	if ( "" != $rigidBodyEntity )
+	{
+		$transforms = `listConnections -type "transform" $rigidBodyEntity`;
+	}
+	
+	if ( 1 < size ( $transforms ) )
+	{
+		warning( "Joint has " + size( $transforms ) + " rigidbody mesh transforms. Returning " + $transforms[0] );
+	}
+	
+	return $transforms[0];
+}
+
+//--------------------------------------------------------------------------------------------
+/** @author Jeff Cotton
+ *  @date   10/02/2004
+ *  @param  $joint - joint to find a Rigid Body Poly shape for
+ *  @brief  Find and return the Rigid Body Poly Shape associated with a joint
+ */
+global proc string mpJointGetRigidBodyPolyShape( string $joint )
+{
+	string $polyShapes[];
+	string $rigidBodyMesh = mpJointGetRigidBodyMesh( $joint );
+	
+	if ( "" != $rigidBodyMesh )
+	{
+		$polyShapes = stringArrayCatenate( $polyShapes, `listConnections -type "hkPolyCapsule" $rigidBodyMesh` );
+		$polyShapes = stringArrayCatenate( $polyShapes, `listConnections -type "polySphere" $rigidBodyMesh` );
+		$polyShapes = stringArrayCatenate( $polyShapes, `listConnections -type "polyCube" $rigidBodyMesh` );
+	}
+	
+	if ( 1 < size ( $polyShapes ) )
+	{
+		warning( "Joint has " + size( $polyShapes ) + " rigidbody primitives. Returning " + $polyShapes[0]  );
+	}
+	
+	return $polyShapes[0];
+}
+
+//--------------------------------------------------------------------------------------------
+/** @author Jeff Cotton
+ *  @date   10/04/2004
+ *  @param  $joint
+ *  @brief  
+ */
+global proc float mpJointGetBoneLength( string $joint, int $bSilent )
+{
+	string $child[] = `listRelatives -children $joint`;
+	
+	if ( size( $child ) == 0 )
+	{
+		 return 10;
+	}
+	else
+	{
+		return ( `getAttr ( $child[0] + ".tx" )` );
+	}
+}
+
+//--------------------------------------------------------------------------------------------
+/** @author Jeff Cotton
+ *  @date   10/13/2004
+ *  @param  $joint - source joint to find all constraints to
+ *  @brief  Return the havok constraint nodes that have a given joint as it's source
+ */
+global proc string[] mpJointGetConstraints( string $joint )
+{
+	string $constraints[];
+	
+	string $rigidBodyEntity = mpJointGetRigidBodyEntity( $joint );
+	
+	if ( "" != $rigidBodyEntity )
+	{
+		$constraints = stringArrayCatenate( $constraints, `listConnections -shapes true -source true -destination false -type "hkPointToPointConstraint" $rigidBodyEntity` );
+		$constraints = stringArrayCatenate( $constraints, `listConnections -shapes true -source true -destination false -type "hkStiffSpringConstraint" $rigidBodyEntity` );
+		$constraints = stringArrayCatenate( $constraints, `listConnections -shapes true -source true -destination false -type "hkHingeConstraint" $rigidBodyEntity` );
+		$constraints = stringArrayCatenate( $constraints, `listConnections -shapes true -source true -destination false -type "hkRagdollConstraint" $rigidBodyEntity` );
+	}
+	
+	return $constraints;
+}
+
+//--------------------------------------------------------------------------------------------
+/** @author Jeff Cotton
+ *  @date   10/06/2004
+ *  @param  $jointA - source joint of the constraint
+ *  @param  $jointB - destination joint of the constraint
+ *  @brief  Return the havok constraint node for a joint pair
+ */
+global proc string mpJointGetConstraint( string $jointA, string $jointB )
+{
+	string $constraints[];
+	
+	string $rigidBodyEntityA = mpJointGetRigidBodyEntity( $jointA );
+	string $rigidBodyEntityB = mpJointGetRigidBodyEntity( $jointB );
+	
+	if ( "" != $rigidBodyEntityA && "" != $rigidBodyEntityB )
+	{
+		string $localConstraints[];
+		$localConstraints = stringArrayCatenate( $localConstraints, `listConnections -shapes true -type "hkPointToPointConstraint" $rigidBodyEntityA` );
+		$localConstraints = stringArrayCatenate( $localConstraints, `listConnections -shapes true -type "hkStiffSpringConstraint" $rigidBodyEntityA` );
+		$localConstraints = stringArrayCatenate( $localConstraints, `listConnections -shapes true -type "hkHingeConstraint" $rigidBodyEntityA` );
+		$localConstraints = stringArrayCatenate( $localConstraints, `listConnections -shapes true -type "hkRagdollConstraint" $rigidBodyEntityA` );
+		
+		//~ print ( "A and B Rigid Bodies\n" );
+		//~ print ( $rigidBodyEntityA );
+		//~ print ( "\n" );
+		//~ print ( $rigidBodyEntityB );
+		//~ print ( "\n" );
+		
+		//~ print ( "Constraints\n" );
+		//~ print ( $localConstraints );
+		//~ print ( "\n" );
+		
+		for ( $constraint in $localConstraints )
+		{
+			//~ print ( "Constraint\n" );
+			//~ print ( $constraint );
+			//~ print ( "\n" );
+			
+			string $connectedRigidBodyEntities[] = `listConnections -type "hkRigidBodyEntity" $constraint`;
+			
+			//~ print ( "Connected Rigid Bodies Entities\n" );
+			//~ print ( $connectedRigidBodyEntities );
+			//~ print ( "\n" );
+			
+			for ( $rigidBodyEntity in $connectedRigidBodyEntities )
+			{
+				if ( $rigidBodyEntity == $rigidBodyEntityB )
+				{
+					if ( "" != firstParentOf( $constraint ) )
+					{
+						$constraints[size( $constraints )] = mpShortName( firstParentOf( $constraint ) );
+					}
+				}
+			}
+		}
+	}
+	
+	if ( 1 < size ( $constraints ) )
+	{
+		warning( "Joint has " + size( $constraints ) + " constraints associated with " + $jointB + ". Returning " + $constraints[0] );
+	}
+	
+	return $constraints[0];
+}
+
+//--------------------------------------------------------------------------------------------
+/** @author Jeff Cotton
+ *  @date   10/04/2004
+ *  @param  $longName - the full dag path
+ *  @brief  returns a unique name from a full dag paths
+ */
+global proc string mpShortName( string $longName )
+{
+	string $shortName[];
+	
+	if ( "" != $longName )
+	{
+		$shortName = `ls $longName`;
+	}
+	
+	return $shortName[0]; 
+}
+
+//--------------------------------------------------------------------------------------------
+/** @author Jeff Cotton
+ *  @date   10/04/2004
+ *  @param  $longNames - the full dag paths
+ *  @brief  returns a group of unique names from a group of full dag paths
+ */
+global proc string[] mpShortNames( string $longNames[] )
+{
+	string $shortNames[];
+	
+	if ( 0 != size ( $longNames ) )
+	{
+		$shortNames = `ls $longNames`;
+	}
+	
+	return $shortNames; 
+}
+
+//--------------------------------------------------------------------------------------------
+/** @author Jeff Cotton
+ *  @date   10/04/2004
+ *  @param  $shortName - the unique name
+ *  @brief  returns a full dag path from a unique name
+ */
+global proc string mpLongName( string $shortName )
+{
+	string $longName[];
+	
+	if ( "" != $shortName )
+	{
+		$longName = `ls -long $shortName`;
+	}
+	
+	return $longName[0]; 
+}
+
+//--------------------------------------------------------------------------------------------
+/** @author Jeff Cotton
+ *  @date   10/04/2004
+ *  @param  $shortName - the unique names
+ *  @brief  returns a group of full dag paths from a group of unique names
+ */
+global proc string[] mpLongNames( string $shortNames[] )
+{
+	string $longNames[];
+	
+	if ( 0 != size ( $shortNames ) )
+	{
+		$longNames = `ls -long $shortNames`;
+	}
+	
+	return $longNames; 
+}

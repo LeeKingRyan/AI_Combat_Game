@@ -1,0 +1,932 @@
+//--------------------------------------------------------------------------------------------
+/** @file   Monolith/UI/mpTabSockets.mel
+ *  @date   09/23/2004
+ *
+ * (c) 1997-2004 Monolith Productions, Inc.  All Rights Reserved
+ */
+//--------------------------------------------------------------------------------------------
+
+source "monolith/mpModelImport.mel";
+source "monolith/mpModelExport.mel";
+source "monolith/UI/mpTabbedPanel.mel";
+source "monolith/UI/mpTabMain.mel";
+
+global string $mpUITabSocketsName = "TabSockets";
+
+//--------------------------------------------------------------------------------------------
+/** @author Jeff Cotton
+ *  @date   09/23/2004
+ *  @brief  
+ */
+global proc mpUITabSocketsSocketsListDeleteCommand( string $parentTabLayout,
+                                                    string $parentUI )
+{
+	string $controlPath     = $parentUI + "|SocketsList";
+	string $rootJoint       = mpGetRootJoint( false, true );
+	string $selectedItems[] = `textScrollList -query -selectItem $controlPath`; 
+	
+	if ( size( $selectedItems ) )
+	{
+		for( $selectedItem in $selectedItems )
+		{
+			string $uniquePath = mpUniquePath( $rootJoint, $selectedItem );
+			
+			delete $uniquePath;
+		}
+	}
+	
+	mpUITabSocketsSocketsListRemoveSelectedItem( $parentTabLayout, $parentUI );
+}
+
+//--------------------------------------------------------------------------------------------
+/** @author Jeff Cotton
+ *  @date   09/23/2004
+ *  @brief  
+ */
+global proc mpUITabSocketsSocketsListSelectionChangedCommand( string $parentTabLayout,
+                                                              string $parentUI )
+{
+	string $controlPath     = $parentUI + "|SocketsList";
+	string $rootJoint       = mpGetRootJoint( false, true );
+	string $selectedItems[] = `textScrollList -query -selectItem $controlPath`; 
+	string $items[]         = `textScrollList -query -allItems $controlPath`; 
+	
+	// deselect everything first
+	if ( size( $items ) )
+	{
+		for( $item in $items )
+		{
+			string $uniquePath = mpUniquePath( $rootJoint, $item );
+			
+			select -deselect $uniquePath;
+		}
+	}
+	
+	// select only the selected items
+	if ( size( $selectedItems ) )
+	{
+		for( $selectedItem in $selectedItems )
+		{
+			string $uniquePath = mpUniquePath( $rootJoint, $selectedItem );
+			
+			select -add $uniquePath;
+		}
+	}
+	
+	//~ mpUITabSocketsUpdate( $parentTabLayout );
+}
+
+//--------------------------------------------------------------------------------------------
+/** @author Jeff Cotton
+ *  @date   08/23/2004
+ *  @brief  remove the selected item from the file list.
+ *
+ *   Select the item that replaces the removed item, or the previous item if the selected
+ *  item was the last item.
+ */
+global proc mpUITabSocketsSocketsListRemoveSelectedItem( string $parentTabLayout,
+                                                         string $parentUI )
+{
+	string $controlPath     = $parentUI + "|SocketsList";
+	int    $selectedIndex[] = `textScrollList -query -selectIndexedItem $controlPath`;
+	
+	if ( 1 <= size( $selectedIndex ) )
+	{
+		textScrollList -edit -removeIndexedItem $selectedIndex[0] $controlPath;
+		
+		int $numItems = `textScrollList -query -numberOfItems $controlPath`;
+		
+		if ( 0 != $numItems )
+		{
+			if ( $selectedIndex[0] <= $numItems )
+			{
+				textScrollList -edit -selectIndexedItem $selectedIndex[0] $controlPath;
+			}
+			else
+			{
+				textScrollList -edit -selectIndexedItem $numItems $controlPath;
+			}
+		}
+	}
+}
+
+//--------------------------------------------------------------------------------------------
+/** @author Jeff Cotton
+ *  @date   09/23/2004
+ *  @brief  
+ */
+global proc mpUITabSocketsSocketsListUpdate( string $parentTabLayout,
+                                             string $parentUI )
+{
+	string $controlPath = $parentUI + "|SocketsList";
+	string $rootJoint   = mpGetRootJoint( false, true );
+	string $sockets[]   = mpGetSockets( $rootJoint, true );
+	
+	$sockets = `listRelatives -path -parent -type "transform" $sockets`;
+	
+	// first empty out the list
+	string $selectedItems[] = `textScrollList -query -selectItem $controlPath`; 
+	
+	// first empty out the list
+	textScrollList -edit -removeAll $controlPath; 
+	
+	if ( 0 != size( $sockets ) )
+	{
+		string $socketNames[] = mpRelativePaths( $rootJoint, $sockets );
+		
+		for ( $name in $socketNames )
+		{
+			textScrollList -edit -append $name $controlPath;
+			
+			string $uniquePath = mpUniquePath( $rootJoint, $name );
+			
+			if ( mpSocketIsSelected( $uniquePath ) )
+			{
+				textScrollList -edit -selectItem $name $controlPath;
+			}
+		}
+		
+		//~ for ( $item in $selectedItems )
+		//~ {
+			//~ textScrollList -edit -selectItem $item $controlPath;
+		//~ }
+	}
+}
+
+//--------------------------------------------------------------------------------------------
+/** @author Jeff Cotton
+ *  @date   09/24/2004
+ *  @brief  
+ */
+global proc int mpSocketIsVisible( string $socket )
+{
+	// if the passed in node is a transform, then I need to get
+	//  the child mpSocketLocator
+	if ( "transform" == `nodeType $socket` )
+	{
+		string $sockets[] = `listRelatives -path -children -type mpSocketLocator $socket`;
+		$socket = $sockets[0];
+	}
+	
+	int $bVisible = false;
+	
+	if ( "" != $socket )
+	{
+		$bVisible = `getAttr ( $socket + ".visibility" )`;
+		
+		string $parentTransforms[] = `listRelatives -path -parent -type transform $socket`;
+		string $parentTransform = $parentTransforms[0];
+		
+		if ( "" != $parentTransform )
+		{
+			$bVisible = $bVisible && `getAttr ( $parentTransform + ".visibility" )`;
+		}
+	}
+	
+	return $bVisible;
+}
+//--------------------------------------------------------------------------------------------
+/** @author Jeff Cotton
+ *  @date   09/24/2004
+ *  @brief  
+ */
+global proc int mpSocketIsSelected( string $socket )
+{
+	// if the passed in node is a transform, then I need to get
+	//  the child mpSocketLocator
+	if ( "transform" == `nodeType $socket` )
+	{
+		string $sockets[] = `listRelatives -path -children -type mpSocketLocator $socket`;
+		$socket = $sockets[0];
+	}
+	
+	if ( "" != $socket )
+	{
+		string $selectedSockets[] = `ls -type mpSocketLocator -selection`;
+		
+		$myIntersector = `stringArrayIntersector`;
+		stringArrayIntersector -edit -intersect $selectedSockets $myIntersector;
+		stringArrayIntersector -edit -intersect $socket $myIntersector;
+		$selectedSockets = `stringArrayIntersector -query $myIntersector`;
+		stringArrayIntersector -edit -reset $myIntersector;
+		deleteUI $myIntersector;
+		
+		if ( size( $selectedSockets ) )
+		{
+			return true;
+		}
+		
+		string $parentTransforms[] = `listRelatives -path -parent -type transform $socket`;
+		string $parentTransform = $parentTransforms[0];
+		if ( "" != $parentTransform )
+		{
+			string $selectedTransforms[] = `ls -type transform -selection`;
+			
+			$myIntersector = `stringArrayIntersector`;
+			stringArrayIntersector -edit -intersect $selectedTransforms $myIntersector;
+			stringArrayIntersector -edit -intersect $parentTransform $myIntersector;
+			$selectedTransforms = `stringArrayIntersector -query $myIntersector`;
+			stringArrayIntersector -edit -reset $myIntersector;
+			deleteUI $myIntersector;
+			
+			if ( size( $selectedTransforms ) )
+			{
+				return true;
+			}
+		}
+	}
+	
+	return false;
+}
+
+//--------------------------------------------------------------------------------------------
+/** @author Jeff Cotton
+ *  @date   09/23/2004
+ *  @brief  
+ */
+global proc int mpSocketHasModelAttached( string $socket )
+{
+	string $constraints[] = `listConnections -plugs false -source false -destination true -type "constraint" $socket`;
+	if ( size( $constraints ) )
+	{
+		string $constrainedJoints[] = `listConnections -plugs false -source false -destination true -type "joint" $constraints`;
+		return size( $constrainedJoints );
+	}
+	
+	return false;
+}
+
+//--------------------------------------------------------------------------------------------
+/** @author Jeff Cotton
+ *  @date   09/23/2004
+ *  @brief  
+ */
+global proc mpSocketDeleteAttachedModel( string $socket )
+{
+	if ( mpSocketHasModelAttached( $socket ) )
+	{
+		string $constraints[]       = `listConnections -plugs false -source false -destination true -type "constraint" $socket`;
+		string $constrainedJoints[] = `listConnections -plugs false -source false -destination true -type "joint" $constraints`;
+		
+		$constrainedJoints = stringArrayRemoveDuplicates( $constrainedJoints );
+		print( $constrainedJoints );
+		
+		if ( size( $constrainedJoints ) ) 
+		{
+			// delete the Hierarchy
+			for ( $joint in $constrainedJoints )
+			{
+				print( "Deleting [" + $joint + "]\n" );
+				
+				// delete the Hierarchy
+				if ( `objExists $joint` )
+				{
+					// delete the Shapes
+					string $shapes[] = mpGetShapes( $joint, true );
+					if ( size( $shapes ) > 0 )
+					{
+						string $parentGroups[];
+						string $rootGroups[];
+						
+						print( "Shapes:\n" );
+						print( $shapes );
+						
+						for ( $shape in $shapes )
+						{
+							$parentGroups = stringArrayCatenate( $parentGroups, `listRelatives -fullPath -parent $shape` );
+							
+							print( "Deleting [" + $shape + "]\n" );
+							delete -shape true $shape;
+						}
+						
+						$parentGroups = stringArrayRemoveDuplicates( $parentGroups );
+						
+						print( "ParentGroups:\n" );
+						print( $parentGroups );
+						
+						for ( $parentGroup in $parentGroups )
+						{
+							$rootGroups = stringArrayCatenate( $rootGroups, `listRelatives -fullPath -parent $parentGroup` );
+							
+							print( "Deleting [" + $parentGroup + "]\n" );
+							delete $parentGroup;
+						}
+						
+						$rootGroups = stringArrayRemoveDuplicates( $rootGroups );
+						
+						print( "RootGroups:\n" );
+						print( $rootGroups );
+						
+						for ( $rootGroup in $rootGroups )
+						{
+							print( "Deleting [" + $rootGroup + "]\n" );
+							delete $rootGroup;
+						}
+					}
+					
+					// now delete the hiearachy
+					delete $joint;
+				}
+			}
+		}
+	}
+}
+
+//--------------------------------------------------------------------------------------------
+/** @author Jeff Cotton
+ *  @date   09/23/2004
+ *  @brief  
+ */
+global proc mpSocketAttachModel( string $socket, string $modelPath )
+{
+	if ( "" == $socket )
+	{
+		error( "A valid Socket must be specified" );
+	}
+	
+	if ( !`filetest -r $modelPath` )
+	{
+		error( "Filetest failed on " + $modelPath + " file may not exist" );
+	}
+	
+	string $selection[] = `ls -selection`;
+	
+	string $childModelRoot = mpDoModelImport( $modelPath, 1, 1, 1, 1, 0, "", 0, 1, 1 );
+	
+	select $selection;
+	
+	if ( "" == $childModelRoot )
+	{
+		error( "Something went wrong importing the model" );
+	}
+	
+	orientConstraint $socket $childModelRoot;
+	pointConstraint $socket $childModelRoot;
+}
+
+//--------------------------------------------------------------------------------------------
+/** @author Jeff Cotton
+ *  @date   01/10/2005
+ *  @param  parentTabLayout - 
+ *  @param  parentUI - 
+ *  @brief  
+ */
+global proc mpUITabSocketsShowAllCommand( string $parentTabLayout,
+                                          string $parentUI )
+{
+	string $rootJoint = mpGetRootJoint( false, true );
+	string $sockets[] = mpGetSockets( $rootJoint, true );
+	
+	for ( $socket in $sockets )
+	{
+		string $uniquePath = mpUniquePath( $rootJoint, $socket );
+		
+		setAttr ( $uniquePath + ".visibility" ) true;
+	}
+	
+	mpUITabSocketsShowHideButtonUpdate( $parentTabLayout, $parentUI );
+	mpUITabSocketsShowHideAllButtonUpdate( $parentTabLayout, $parentUI );
+}
+
+//--------------------------------------------------------------------------------------------
+/** @author Jeff Cotton
+ *  @date   01/10/2005
+ *  @param  parentTabLayout - 
+ *  @param  parentUI - 
+ *  @brief  
+ */
+global proc mpUITabSocketsHideAllCommand( string $parentTabLayout,
+                                          string $parentUI )
+{
+	string $rootJoint = mpGetRootJoint( false, true );
+	string $sockets[] = mpGetSockets( $rootJoint, true );
+	
+	for ( $socket in $sockets )
+	{
+		string $uniquePath = mpUniquePath( $rootJoint, $socket );
+		
+		setAttr ( $uniquePath + ".visibility" ) false;
+	}
+	
+	mpUITabSocketsShowHideButtonUpdate( $parentTabLayout, $parentUI );
+	mpUITabSocketsShowHideAllButtonUpdate( $parentTabLayout, $parentUI );
+}
+
+//--------------------------------------------------------------------------------------------
+/** @author Jeff Cotton
+ *  @date   09/23/2004
+ *  @param  parentTabLayout - 
+ *  @param  parentUI - 
+ *  @brief  
+ */
+global proc mpUITabSocketsShowCommand( string $parentTabLayout,
+                                       string $parentUI )
+{
+	string $controlPath       = $parentUI + "|SocketsList";
+	string $selectedSockets[] = `textScrollList -query -selectItem $controlPath`; 
+	string $rootJoint         = mpGetRootJoint( false, true );
+	
+	for ( $socket in $selectedSockets )
+	{
+		string $uniquePath = mpUniquePath( $rootJoint, $socket );
+		
+		setAttr ( $uniquePath + ".visibility" ) true;
+	}
+	
+	mpUITabSocketsShowHideButtonUpdate( $parentTabLayout, $parentUI );
+	mpUITabSocketsShowHideAllButtonUpdate( $parentTabLayout, $parentUI );
+}
+
+//--------------------------------------------------------------------------------------------
+/** @author Jeff Cotton
+ *  @date   09/23/2004
+ *  @param  parentTabLayout - 
+ *  @param  parentUI - 
+ *  @brief  
+ */
+global proc mpUITabSocketsHideCommand( string $parentTabLayout,
+                                       string $parentUI )
+{
+	string $controlPath       = $parentUI + "|SocketsList";
+	string $selectedSockets[] = `textScrollList -query -selectItem $controlPath`; 
+	string $rootJoint         = mpGetRootJoint( false, true );
+	
+	for ( $socket in $selectedSockets )
+	{
+		string $uniquePath = mpUniquePath( $rootJoint, $socket );
+		
+		setAttr ( $uniquePath + ".visibility" ) false;
+	}
+	
+	mpUITabSocketsShowHideButtonUpdate( $parentTabLayout, $parentUI );
+	mpUITabSocketsShowHideAllButtonUpdate( $parentTabLayout, $parentUI );
+}
+
+//--------------------------------------------------------------------------------------------
+/** @author Jeff Cotton
+ *  @date   09/23/2004
+ *  @param  parentTabLayout - 
+ *  @param  parentUI - 
+ *  @brief  
+ */
+global proc mpUITabSocketsRemoveAttachedCommand( string $parentTabLayout,
+                                                 string $parentUI )
+{
+	string $controlPath       = $parentUI + "|SocketsList";
+	string $selectedSockets[] = `textScrollList -query -selectItem $controlPath`;
+	string $rootJoint         = mpGetRootJoint( false, true );
+	
+	for( $socket in $selectedSockets )
+	{
+		string $uniquePath = mpUniquePath( $rootJoint, $socket );
+		
+		if ( mpSocketHasModelAttached( $uniquePath ) )
+		{
+			mpSocketDeleteAttachedModel( $uniquePath );
+		}
+	}
+	
+	mpUITabSocketsRemoveAttachedButtonUpdate( $parentTabLayout, $parentUI );
+}
+
+//--------------------------------------------------------------------------------------------
+/** @author Jeff Cotton
+ *  @date   09/23/2004
+ *  @param  parentTabLayout - 
+ *  @param  parentUI - 
+ *  @brief  
+ */
+global proc mpUITabSocketsRemoveAttachedButtonUpdate( string $parentTabLayout,
+                                                      string $parentUI )
+{
+	string $controlPath       = $parentUI + "|RemoveAttachedButton";
+	string $socketsListPath   = $parentUI + "|SocketsList";
+	string $selectedSockets[] = `textScrollList -query -selectItem $socketsListPath`;
+	string $rootJoint         = mpGetRootJoint( false, true );
+	int    $bEnable           = false;
+	
+	for ( $socket in $selectedSockets )
+	{
+		string $uniquePath = mpUniquePath( $rootJoint, $socket );
+		
+		if ( mpSocketHasModelAttached( $uniquePath ) )
+		{
+			$bEnable = true;
+			break;
+		}
+	}
+	
+	button -edit -enable $bEnable $controlPath;
+}
+
+//--------------------------------------------------------------------------------------------
+/** @author Jeff Cotton
+ *  @date   09/23/2004
+ *  @param  parentTabLayout - 
+ *  @param  parentUI - 
+ *  @brief  
+ */
+global proc mpUITabSocketsNewCommand( string $parentTabLayout,
+                                      string $parentUI )
+{
+	string $joints[] = `ls -objectsOnly -type "joint" -selection`;
+	
+	if ( 0 == size( $joints ) )
+	{
+		mpConfirmDialog( "ok",
+		                 "Error!",
+		                 "Can't create a new sockets without at least one joint selected",
+		                 "Can't create a new sockets without at least one joint selected",
+		                 false );
+	}
+	else
+	{
+		string $socketName;
+		if ( size( $joints ) > 1 )
+		{
+			$socketName = "";
+		}
+		else
+		{
+			string $jointName[];
+			if ( `tokenize $joints[0] $jointName` )
+			{
+				$socketName = $jointName[size($jointName) - 1] + "Socket";
+			}
+		}
+
+		string $result = `promptDialog -title         "Create Socket"
+		                               -text          $socketName
+		                               -message       "Socket Name:"
+		                               -button        "Create"
+		                               -button        "Cancel"
+		                               -defaultButton "Create"
+		                               -cancelButton  "Cancel"
+		                               -dismissString "Cancel"`;
+		
+		if ( $result == "Create" )
+		{
+			$socketName = `promptDialog -query -text`;
+			
+			for ( $joint in $joints )
+			{
+				string $newSocketName = $socketName;
+				if ( "" == $newSocketName )
+				{
+					string $jointName[];
+					if ( `tokenize $joint $jointName` )
+					{
+						$newSocketName = $jointName[size($jointName) - 1] + "Socket";
+					}
+				}
+				
+				string $parentTransform = `createNode transform -name $newSocketName -parent $joint`;
+				createNode mpSocketLocator -name ( $newSocketName + "Shape" ) -parent $parentTransform;
+			}
+		}
+	}
+}
+
+//--------------------------------------------------------------------------------------------
+/** @author Jeff Cotton
+ *  @date   08/20/2004
+ *  @brief  Command for the file browse dialog
+ */
+global proc mpUITabSocketsAttachFileBrowserCommand( string $parentUI,
+                                                    string $path,
+                                                    string $fileType )
+{
+	if ( "" != $path )
+	{
+		string $directory = dirname( $path );
+		string $filename  = basenameEx( $path );
+		
+		if ( !`filetest -r $path` )
+		{
+			$path = $directory + "/" + $filename + "." + mpFileExtension( "modelc" );
+			if ( `filetest -r $path` )
+			{
+				$path = $directory + "/" + $filename + "." + mpFileExtension( "model" );
+				if ( `filetest -r $path` )
+				{
+					error( $filename + " does not exist compressed or in Ascii"  ) ;
+				}
+			}
+		}
+		
+		string $controlPath       = $parentUI + "|SocketsList";
+		string $selectedSockets[] = `textScrollList -query -selectItem $controlPath`; 
+		string $rootJoint         = mpGetRootJoint( false, true );
+		
+		for ( $socket in $selectedSockets )
+		{
+			string $uniquePath = mpUniquePath( $rootJoint, $socket );
+			
+			if ( mpSocketHasModelAttached( $uniquePath ) )
+			{
+				string $inputResult = mpConfirmDialog( "noyes",
+				                                       "Warning",
+				                                       "skipping import because a socket already has a model attached",
+				                                       ( $socket + " Socket already has a Model attached. Replace?" ),
+				                                       false );
+				
+				// if the user answered No then skip this model
+				if ( "No" == $inputResult )
+				{
+					continue;
+				}
+				
+				mpSocketDeleteAttachedModel( $uniquePath );
+			}
+			
+			if ( catchQuiet( mpSocketAttachModel( $uniquePath, $path ) ) )
+			{
+				mpConfirmDialog( "Continue",
+				                 "Warning",
+				                 ( "Failed to attach " + $path + " to " + $socket ),
+				                 ( "Failed to attach " + $path + " to " + $socket ),
+				                 false );
+			}
+		}
+		
+		optionVar -stringValue "MonolithTabbedPanel.TabSockets.LastOpenedFileLocation" $directory;
+	}
+}
+
+//--------------------------------------------------------------------------------------------
+/** @author Jeff Cotton
+ *  @date   09/23/2004
+ *  @param  parentTabLayout - 
+ *  @param  parentUI - 
+ *  @brief  
+ */
+global proc mpUITabSocketsAttachCommand( string $parentTabLayout,
+                                         string $parentUI )
+{
+	string $controlPath = $parentUI + "|SocketsList";
+	string $oldWorkspace    = `workspace -query -dir`;
+	string $projectBasePath = `mpBasePath -query -project`;
+	
+	if ( `optionVar -exists "MonolithTabbedPanel.TabSockets.LastOpenedFileLocation"` )
+	{
+		string $dirTest = `optionVar -query "MonolithTabbedPanel.TabSockets.LastOpenedFileLocation"`;
+		if ( `filetest -d $dirTest` )
+		{
+			$projectBasePath = $dirTest;
+		}
+	}
+	
+	workspace -dir $projectBasePath;
+	
+	fileBrowserDialog -mode        0
+	                  -fileCommand ( "mpUITabSocketsAttachFileBrowserCommand \"" + $parentUI + "\"" )
+	                  -actionName  "Open"
+	                  -dialogStyle 0
+	                  -windowTitle "Open Monolith Model File To Attach To Socket"
+	                  -filterList  "Monolith Model File,*.Model00a;*.Model00c";
+	
+	workspace -dir $oldWorkspace;
+}
+
+//--------------------------------------------------------------------------------------------
+/** @author Jeff Cotton
+ *  @date   09/23/2004
+ *  @brief  Updates the sockets tab's UI Elements with the correct values from the main tab
+ */
+global proc mpUITabSocketsNewButtonUpdate( string $parentTabLayout,
+                                           string $parentUI )
+{
+	string $controlPath      = $parentUI + "|NewButton";
+	string $selectedJoints[] = `ls -type "joint" -selection`;
+	int    $bEnable          = ( size( $selectedJoints ) ? true : false );
+	
+	button -edit -enable $bEnable $controlPath;
+}
+
+//--------------------------------------------------------------------------------------------
+/** @author Jeff Cotton
+ *  @date   01/10/2005
+ *  @brief  
+ */
+global proc mpUITabSocketsShowHideAllButtonUpdate( string $parentTabLayout,
+                                                   string $parentUI )
+{
+	string $controlPath       = $parentUI + "|ShowHideAllButton";
+	string $label             = "Show All";
+	string $command           = "mpUITabSocketsShowAllCommand( \"" + $parentTabLayout + "\", \"" + $parentUI + "\" )";
+	string $rootJoint         = mpGetRootJoint( false, true );
+	string $sockets[]         = mpGetSockets( $rootJoint, true );
+	
+	if( size( $sockets ) )
+	{
+		for ( $socket in $sockets )
+		{
+			string $uniquePath = mpUniquePath( $rootJoint, $socket );
+			
+			if ( mpSocketIsVisible( $uniquePath ) )
+			{
+				//~ print( "Socket " + $socket + " Is Visible\n" );
+				$label   = "Hide All";
+				$command = "mpUITabSocketsHideAllCommand( \"" + $parentTabLayout + "\", \"" + $parentUI + "\" )";
+				break;
+			}
+		}
+		
+		//~ print( "Label   = " + $label + "\n" );
+		//~ print( "Command = " + $command + "\n" );
+		
+		button -edit -enable true -label $label -command $command $controlPath;
+	}
+	else
+	{
+		button -edit -enable false $controlPath;
+	}
+}
+
+//--------------------------------------------------------------------------------------------
+/** @author Jeff Cotton
+ *  @date   09/23/2004
+ *  @brief  Updates the sockets tab's UI Elements with the correct values from the main tab
+ */
+global proc mpUITabSocketsShowHideButtonUpdate( string $parentTabLayout,
+                                                string $parentUI )
+{
+	string $controlPath       = $parentUI + "|ShowHideButton";
+	string $socketsListPath   = $parentUI + "|SocketsList";
+	string $label             = "Show";
+	string $command           = "mpUITabSocketsShowCommand( \"" + $parentTabLayout + "\", \"" + $parentUI + "\" )";
+	string $rootJoint         = mpGetRootJoint( false, true );
+	string $selectedSockets[] = `textScrollList -query -selectItem $socketsListPath`;
+	
+	if( size( $selectedSockets ) )
+	{
+		for ( $socket in $selectedSockets )
+		{
+			string $uniquePath = mpUniquePath( $rootJoint, $socket );
+			
+			if ( mpSocketIsVisible( $uniquePath ) )
+			{
+				//~ print( "Socket " + $socket + " Is Visible\n" );
+				$label   = "Hide";
+				$command = "mpUITabSocketsHideCommand( \"" + $parentTabLayout + "\", \"" + $parentUI + "\" )";
+				break;
+			}
+		}
+		
+		//~ print( "Label   = " + $label + "\n" );
+		//~ print( "Command = " + $command + "\n" );
+		
+		button -edit -enable true -label $label -command $command $controlPath;
+	}
+	else
+	{
+		button -edit -enable false $controlPath;
+	}
+}
+
+//--------------------------------------------------------------------------------------------
+/** @author Jeff Cotton
+ *  @date   09/23/2004
+ *  @brief  Updates the sockets tab's UI Elements with the correct values from the main tab
+ */
+global proc mpUITabSocketsUpdate( string $parentTabLayout )
+{
+	global string $mpUITabSocketsName;
+	string $tabPath = ( $parentTabLayout + "|" + $mpUITabSocketsName );
+	
+	if( `layout -exists $tabPath` )
+	{
+		int    $selectedFileID   = mpUITabMainFileListGetSelectedFileID( $parentTabLayout );
+		string $selectedFilename = mpUITabMainFileListGetSelectedFilename( $parentTabLayout );
+		string $filenames[]      = mpUITabMainFileListGetList( $parentTabLayout );
+		string $callback         = "mpUITabImportSelectedFileFrameChangeCallback \"" + $parentTabLayout + "\"";
+		
+		mpUITabbedPanelSelectedFileFrameUpdate( $tabPath, $filenames, $selectedFilename, $callback );
+		mpUITabSocketsSocketsListUpdate( $parentTabLayout, $tabPath );
+		mpUITabSocketsShowHideButtonUpdate( $parentTabLayout, $tabPath );
+		mpUITabSocketsShowHideAllButtonUpdate( $parentTabLayout, $tabPath );
+		mpUITabSocketsNewButtonUpdate( $parentTabLayout, $tabPath );
+		mpUITabSocketsRemoveAttachedButtonUpdate( $parentTabLayout, $tabPath );
+	}
+}
+
+//--------------------------------------------------------------------------------------------
+/** @author Jeff Cotton
+ *  @date   09/23/2004
+ *  @param  parentTabLayout - 
+ *  @brief  Delete the Sockets tab
+ */
+proc mpUITabSocketsDelete( string $parentTabLayout )
+{
+	global string $mpUITabSocketsName;
+	if( `layout -exists ( $parentTabLayout + "|" + $mpUITabSocketsName )` )
+	{
+		deleteUI -layout ( $parentTabLayout + "|" + $mpUITabSocketsName );
+	}
+}
+
+//--------------------------------------------------------------------------------------------
+/** @author Jeff Cotton
+ *  @date   09/23/2004
+ *  @brief  Create the Sockets tab for the Monolith Tabbed Panel
+ *
+ *   this function requires that a tab layout was previously created and is the current
+ *  layout parent
+ */
+global proc string mpUITabSocketsCreate()
+{
+	global string $mpUITabSocketsName;
+	// might bail out of Mel script 
+	mpEnsureMonolithPluginLoaded( false );
+	
+	string $tabSocketsFormLayout;
+	
+	// confirm that the current parent exists as a tab layout
+	// 	(confirm the parent IS a tabLayout)
+	string $parentTabLayout = `setParent -query`;
+	
+	if ( `tabLayout -exists $parentTabLayout` )
+	{
+		// if the Sockets tab already exist then delete it so that it can be updated
+		//  if code changed.
+		mpUITabSocketsDelete( $parentTabLayout );
+		
+		$tabSocketsFormLayout = `formLayout -numberOfDivisions 100 $mpUITabSocketsName`;
+		{
+			mpUIEmbedUpdateCommand( "mpUITabSocketsUpdate( \"" + $parentTabLayout + "\" )" );
+			
+			string $filenameFrame    = mpUITabbedPanelSelectedFileFrameCreate();
+			
+			string $command;
+			$command = "mpUITabSocketsShowCommand( \"" + $parentTabLayout + "\", \"" + $tabSocketsFormLayout + "\" )";
+			string $showHideButton   = `button -label   "Show"
+			                                   -command $command
+			                                   ShowHideButton`;
+			
+			$command = "mpUITabSocketsHideAllCommand( \"" + $parentTabLayout + "\", \"" + $tabSocketsFormLayout + "\" )";
+			string $showHideAllButton = `button -label   "Show"
+			                                    -command $command
+			                                    ShowHideAllButton`;
+			
+			$command = "mpUITabSocketsNewCommand( \"" + $parentTabLayout + "\", \"" + $tabSocketsFormLayout + "\" )";
+			string $newButton        = `button -label   "New"
+			                                   -command $command
+			                                   NewButton`;
+			
+			$command = "mpUITabSocketsRemoveAttachedCommand( \"" + $parentTabLayout + "\", \"" + $tabSocketsFormLayout + "\" )";
+			string $removeAttachedButton = `button -label   "Detach"
+			                                       -command $command
+			                                       RemoveAttachedButton`;
+			
+			string $deleteCommand    = "mpUITabSocketsSocketsListDeleteCommand( \"" + $parentTabLayout + "\", \"" + $tabSocketsFormLayout + "\" )";
+			string $selectCommand    = "mpUITabSocketsSocketsListSelectionChangedCommand( \"" + $parentTabLayout + "\", \"" + $tabSocketsFormLayout + "\" )";
+			string $attachCommand    = "mpUITabSocketsAttachCommand( \"" + $parentTabLayout + "\", \"" + $tabSocketsFormLayout + "\" )";
+			string $socketsList      = `textScrollList -allowMultiSelection true
+			                                           -width               100
+			                                           -deleteKeyCommand    $deleteCommand
+			                                           -selectCommand       $selectCommand
+			                                           -doubleClickCommand  $attachCommand
+			                                           SocketsList`;
+			
+			formLayout -edit 
+			                 -attachForm     $filenameFrame   "top"    0
+			                 -attachForm     $filenameFrame   "left"   0
+			                 -attachNone     $filenameFrame   "bottom"
+			                 -attachForm     $filenameFrame   "right"  0
+			
+			                 -attachNone     $showHideAllButton "top"    
+			                 -attachForm     $showHideAllButton "left"   5
+			                 -attachForm     $showHideAllButton "bottom" 5
+			                 -attachNone     $showHideAllButton "right"  
+			
+			                 -attachNone     $showHideButton  "top"    
+			                 -attachControl  $showHideButton  "left"   5 $showHideAllButton
+			                 -attachForm     $showHideButton  "bottom" 5
+			                 -attachNone     $showHideButton  "right"  
+			
+			                 -attachNone     $newButton       "top"    
+			                 -attachControl  $newButton       "left"   5 $showHideButton
+			                 -attachForm     $newButton       "bottom" 5
+			                 -attachNone     $newButton       "right"  
+			
+			                 -attachNone     $removeAttachedButton "top"    
+			                 -attachControl  $removeAttachedButton "left"   5 $newButton
+			                 -attachForm     $removeAttachedButton "bottom" 5
+			                 -attachNone     $removeAttachedButton "right"  
+			
+			                 -attachControl  $socketsList     "top"    5 $filenameFrame
+			                 -attachForm     $socketsList     "left"   5
+			                 -attachControl  $socketsList     "bottom" 5 $newButton
+			                 -attachForm     $socketsList     "right"  5
+			
+			                 $tabSocketsFormLayout;
+		}
+		setParent ..;
+		
+		tabLayout -edit -tabLabel $tabSocketsFormLayout "Sockets" $parentTabLayout;
+		
+		mpUITabSocketsUpdate( $parentTabLayout );
+	}
+	
+	return $tabSocketsFormLayout;
+}

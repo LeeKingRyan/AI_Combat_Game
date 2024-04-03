@@ -1,0 +1,603 @@
+//--------------------------------------------------------------------------------------------
+/** @file   Monolith/mpModelImport.mel
+ *  @date   08/03/2004
+ *
+ * (c) 1997-2004 Monolith Productions, Inc.  All Rights Reserved
+ */
+//--------------------------------------------------------------------------------------------
+
+source "monolith/mpModelUtility.mel";
+
+//--------------------------------------------------------------------------------------------
+/** @author Jeff Cotton
+ *  @date   09/23/2004
+ *  @return true if the progress window is cancelled
+ */
+proc int mpImportRunCallBack( string $callback, string $title, int $value, string $status )
+{
+	int $bWasCancelled = false;
+	
+	if ( "" != $callback )
+	{
+		string $command = $callback + " " + "\"" + $title + "\" " + $value + " \"" + $status + "\"";
+		print ( $command + "\n" );
+		$bWasCancelled = eval( $command );
+	}
+	
+	return $bWasCancelled;
+}
+
+//--------------------------------------------------------------------------------------------
+/** @author Jeff Cotton
+ *  @date   09/23/2004
+ *  @return Error string to be displayed to the user. Empty if no error occured
+ */
+proc string mpImportHierarchy( string $callback, int $fileID, string $rootJoint[], int $bSilent )
+{
+	if ( mpImportRunCallBack( $callback, "Importing...", 3, "Importing Hierarchy" ) )
+	{
+		if ( catchQuiet( $rootJoint[0] = `mpModelImportHierarchy -id $fileID -silent` ) )
+		{
+			return "Couldn't Import Hierarchy";
+		}
+		
+		// create the bind pose upon loading the hierarchy
+		dagPose -save -bindPose $rootJoint[0];
+	}
+
+	if ( mpImportRunCallBack( $callback, "Importing...", 5, "Importing NodeFlags" ) )
+	{
+		if ( catchQuiet( `mpModelImportNodeFlags -id $fileID -recursive -silent $rootJoint[0]` ) )
+		{
+			return "Couldn't Import NodeFlags";
+		}
+	}
+	
+	return "";
+}
+
+//--------------------------------------------------------------------------------------------
+/** @author Jeff Cotton
+ *  @date   09/23/2004
+ *  @return Error string to be displayed to the user. Empty if no error occured 
+ */
+proc string mpImportSkin( string $callback, int $fileID, string $rootJoint, int $bSilent )
+{
+	string $shapes[] = mpGetShapes( $rootJoint, true );
+	
+	if ( size( $shapes ) > 0 )
+	{
+		string $result = mpConfirmDialog( "noyes",
+		                                  "Shapes Exist",
+		                                  "Not deleting existing shapes before import",
+		                                  "Shapes exist on this skeleton. Delete these shapes?",
+		                                  $bSilent );
+		
+		if ( "Yes" == $result )
+		{
+			string $parentGroups[];
+			string $rootGroups[];
+			
+			//~ print( "Shapes:\n" );
+			//~ print( $shapes );
+			
+			for ( $shape in $shapes )
+			{
+				$parentGroups = stringArrayCatenate( $parentGroups, `listRelatives -path -parent $shape` );
+				
+				//~ print( "Deleting [" + $shape + "]\n" );
+				delete -shape true $shape;
+			}
+			
+			$parentGroups = stringArrayRemoveDuplicates( $parentGroups );
+			
+			//~ print( "ParentGroups:\n" );
+			//~ print( $parentGroups );
+			
+			for ( $parentGroup in $parentGroups )
+			{
+				$rootGroups = stringArrayCatenate( $rootGroups, `listRelatives -path -parent $parentGroup` );
+				
+				//~ print( "Deleting [" + $parentGroup + "]\n" );
+				delete $parentGroup;
+			}
+			
+			$rootGroups = stringArrayRemoveDuplicates( $rootGroups );
+			
+			//~ print( "RootGroups:\n" );
+			//~ print( $rootGroups );
+			
+			for ( $rootGroup in $rootGroups )
+			{
+				//~ print( "Deleting [" + $rootGroup + "]\n" );
+				delete $rootGroup;
+			}
+		}
+	}
+	
+	string $LODRootGroup = `group -name "LODGroups" -world -empty`;
+	string $LODGroupNames[];
+	string $LODGroupPaths[];
+	string $rootShapes[];
+	
+	if ( mpImportRunCallBack( $callback, "Importing...", 10, "Importing LOD Groups" ) )
+	{
+		if ( catchQuiet( $LODGroupNames = `mpModelImportLOD -id $fileID -query -groupnames -silent` ) )
+		{
+			return "Couldn't Import LOD Group Names";
+		}
+		
+		for ( $LODGroupName in $LODGroupNames )
+		{
+			group -name $LODGroupName -parent $LODRootGroup -empty;
+			$LODGroupPaths[size( $LODGroupPaths )] = $LODRootGroup + "|" + $LODGroupName;
+		}
+	}
+	
+	if ( mpImportRunCallBack( $callback, "Importing...", 12, "Importing Shapes" ) )
+	{
+		//~ print ( "Number of Groups: " );
+		//~ print ( "\n" );
+		//~ print ( size( $LODGroupNames ) );
+		//~ print ( "\n" );
+		//~ print ( size( $LODGroupPaths ) );
+		//~ print ( "\n" );
+		
+		for ( $ii = 0; $ii < size( $LODGroupNames ) && $ii < size( $LODGroupPaths ); $ii++ )
+		{
+			string $shapes[];
+			float  $distances[];
+			
+			if ( catchQuiet( $shapes = `mpModelImportLOD -id $fileID -silent -groupshapes $LODGroupNames[$ii] -query` ) )
+			{
+				return "Couldn't Get Shapes for Group [" + $LODGroupNames[$ii] + "]";
+			}
+			
+			if ( catchQuiet( $distances = `mpModelImportLOD -id $fileID -silent -groupdists $LODGroupNames[$ii] -query` ) )
+			{
+				return "Couldn't Get Distances for Group [" + $LODGroupNames[$ii] + "]";
+			}
+			
+			//~ print ( "LODGroupPath: " );
+			//~ print ( $LODGroupPaths[$ii] );
+			//~ print ( "\n" );
+			
+			//~ print ( "Size of Shapes: " );
+			//~ print ( size( $shapes ) );
+			//~ print ( "\n" );
+			
+			//~ print ( "Size of Shapes Matches Sizeof Distances: " );
+			//~ print ( ( ( size( $shapes ) == size( $distances ) ) ? "True" : "False" ) );
+			//~ print ( "\n" );
+			
+			if ( size( $shapes ) && ( size( $shapes ) == size( $distances ) ) ) 
+			{
+				string $shapeString = "";
+				
+				for ( $jj = 0; $jj < size( $shapes ); $jj++ )
+				{
+					//~ print ( "Shape[" + $jj + "]: " );
+					//~ print ( $shapes[$jj] );
+					//~ print ( "\n" );
+					
+					if ( "NULL" == $shapes[$jj] )
+					{
+						string $NullLODTransform = `createNode "transform"`;
+						string $NullLOD = `createNode "mesh" -parent $NullLODTransform`;
+						setAttr ( $NullLOD + ".mpNullLOD" ) 1;
+						setAttr ( $NullLOD + ".mpLODDistance" ) $distances[$jj];
+						parent $NullLODTransform $LODGroupPaths[$ii];
+					}
+					else
+					{
+						$shapeString += " -shape " + $shapes[$jj];
+					}
+				}
+				
+				string $strCommand = "mpModelImportShape -ignoresel -silent -id " + $fileID + " -parent " + $LODGroupPaths[$ii] + $shapeString + ";";
+				
+				if ( catchQuiet( $newShapes = eval( $strCommand ) ) )
+				{
+					return "Couldn't Import Shapes";
+				}
+				
+				$rootShapes = stringArrayCatenate( $rootShapes, $newShapes );
+			}
+		}
+	}
+	
+	if ( mpImportRunCallBack( $callback, "Importing...", 20, "Importing ShapeUVs" ) )
+	{
+		print ( "Number of RootShapes: " );
+		print ( "\n" );
+		print ( size( $rootShapes ) );
+		print ( "\n" );
+		print ( $rootShapes );
+		print ( "\n" );
+		
+		for ( $shape in $rootShapes )
+		{
+			string $tokens[];
+			
+			if ( `tokenize $shape "|" $tokens` )
+			{
+				string $nodeName = $tokens[size( $tokens ) - 1];
+				
+				if ( catchQuiet( `mpModelImportShapeUVs -id $fileID -silent -mp $nodeName $shape $shape` ) )
+				{
+					return "Couldn't Import ShapeUVs";
+				}
+			}
+		}
+	}
+	
+	if ( mpImportRunCallBack( $callback, "Importing...", 30, "Importing SkinClusters" ) )
+	{
+		string $originalRootJoint;
+		catchQuiet( $originalRootJoint = `mpModelImportHierarchy -id $fileID -silent -query` );
+		
+		if ( $originalRootJoint != $rootJoint )
+		{
+			if ( catchQuiet( `mpModelImportSkinCluster -id $fileID -mp $originalRootJoint $rootJoint -silent $rootJoint $rootShapes` ) )
+			{
+				return "Couldn't Import SkinClusters";
+			}
+		}
+		else
+		{
+			if ( catchQuiet( `mpModelImportSkinCluster -id $fileID -silent $rootJoint $rootShapes` ) )
+			{
+				return "Couldn't Import SkinClusters";
+			}
+		}
+	}
+	
+	if ( mpImportRunCallBack( $callback, "Importing...", 55, "Importing LODs" ) )
+	{
+		if ( catchQuiet( `mpModelImportLOD -id $fileID -silent $rootShapes` ) )
+		{
+			return "Couldn't Import LODs";
+		}
+	}
+	
+	return "";
+}
+
+//--------------------------------------------------------------------------------------------
+/** @author Jeff Cotton
+ *  @date   09/23/2004
+ *  @return Error string to be displayed to the user. Empty if no error occured 
+ */
+proc string mpImportSockets( string $callback, int $fileID, string $rootJoint, int $bSilent )
+{
+	string $sockets[] = mpGetSockets( $rootJoint, true );
+	
+	if ( size( $sockets ) > 0 )
+	{
+		string $result = mpConfirmDialog( "noyes",
+		                                  "Sockets Exist",
+		                                  "Not deleting existing sockets on this skeleton.",
+		                                  "Sockets exist on this skeleton. Delete these sockets?",
+		                                  $bSilent );
+		
+		if ( "Yes" == $result )
+		{
+			string $transforms[] = `listRelatives -path -parent -type "transform" $sockets`;
+			for ( $transform in $transforms )
+			{
+				delete $transform;
+			}
+		}
+	}
+	
+	if ( mpImportRunCallBack( $callback, "Importing...", 60, "Importing Sockets" ) )
+	{
+		if ( catchQuiet( `mpModelImportSocket -id $fileID -recursive -silent $rootJoint` ) )
+		{
+			// if we failed to import sockets we can ask the user what to do
+			$dialogResult = mpConfirmDialog( "noyes",
+			                                 "Import Warning!",
+			                                 "Sockets failed to import",
+			                                 "Can't Import Sockets. Continue?",
+			                                 $bSilent );
+			
+			// if the user doesn't want to continue then report failure
+			if ( $dialogResult == "No" )
+			{
+				return "Couldn't Import Sockets";
+			}
+		}
+	}
+	
+	return "";
+}
+
+//--------------------------------------------------------------------------------------------
+/** @author Jeff Cotton
+ *  @date   09/23/2004
+ *  @return Error string to be displayed to the user. Empty if no error occured 
+ */
+proc string mpImportPhysics( string $callback, int $fileID, string $rootJoint, int $bSilent )
+{
+	string $physicsShapes[] = mpGetRigidBodies( $rootJoint, true );
+	string $constraints[]   = mpGetConstraints( $rootJoint, true );
+	
+	if ( size( $physicsShapes ) > 0 || size( $constraints ) > 0)
+	{
+		string $result = mpConfirmDialog( "noyes",
+		                                  "Physics data Exist",
+		                                  "Not deleting existing physics data on this skeleton. ",
+		                                  "Physics data exist on this skeleton. Delete this data?",
+		                                  $bSilent );
+		
+		if ( "Yes" == $result )
+		{
+			for ( $constraint in $constraints )
+			{
+				delete -shape true $constraint;
+			}
+			
+			for ( $physicsShape in $physicsShapes )
+			{
+				delete -shape true $physicsShape;
+			}
+		}
+	}
+	
+	if ( mpImportRunCallBack( $callback, "Importing...", 70, "Importing Physics Properties" ) )
+	{
+		if ( catchQuiet( `mpModelImportPhysicsProperties -id $fileID -silent $rootJoint` ) )
+		{
+			return "Couldn't Import Physics Properties";
+		}
+	}
+	
+	if ( mpImportRunCallBack( $callback, "Importing...", 75, "Importing Physics Shapes" ) )
+	{
+		if ( catchQuiet( `mpModelImportPhysicsShape -id $fileID -silent $rootJoint` ) )
+		{
+			return "Couldn't Import Physics Shapes";
+		}
+	}
+	
+	if ( mpImportRunCallBack( $callback, "Importing...", 80, "Importing Physics Constraints" ) )
+	{
+		if ( catchQuiet( `mpModelImportPhysicsConstraint -id $fileID -silent $rootJoint` ) )
+		{
+			return "Couldn't Import Physics Constraints";
+		}
+		else
+		{
+			// make sure that all physics constraints are children of the root node.
+			//  Because this is a requirement for export
+			string $constraints[];
+			catchQuiet( $constraints = `mpModelImportPhysicsConstraint -id $fileID -query` );
+			
+			// make constraints refer explicitly to the constraints with no parent
+			for ( $ii = 0; $ii < size( $constraints ); $ii++ )
+			{
+				$constraints[$ii] = "|" + $constraints[$ii];
+			}
+			
+			if ( 0 != size( $constraints ) )
+			{
+				catchQuiet( `group -parent $rootJoint $constraints` );
+			}
+		}
+	}
+	
+	return "";
+}
+
+//--------------------------------------------------------------------------------------------
+/** @author Jeff Cotton
+ *  @date   09/23/2004
+ *  @param  fileID -
+ *  @param  rootJoint -
+ *  @param  $animationToImport -
+ *  @param  bSilent -
+ *  @return Error string to be displayed to the user. Empty if no error occured 
+ *  @brief  
+ */
+proc string mpImportAnimation( string $callback, int $fileID, string $rootJoint, string $animationToImport, int $bSilent )
+{
+	if ( mpImportRunCallBack( $callback, "Importing...", 90, "Importing " + $animationToImport + " Animation" ) )
+	{
+		string $originalRootJoint;
+		catchQuiet( $originalRootJoint = `mpModelImportHierarchy -id $fileID -silent -query` );
+		
+		if ( $originalRootJoint != $rootJoint )
+		{
+			if ( catchQuiet( `mpModelImportAnimation -id $fileID
+			                                         -mp $originalRootJoint $rootJoint
+			                                         -animation $animationToImport
+			                                         -silent
+			                                         $rootJoint` ) )
+			{
+				return "Couldn't Import Animation: [" + $animationToImport + "] with root joint replacement";
+			}
+		}
+		else
+		{
+			if ( catchQuiet( `mpModelImportAnimation -id $fileID
+			                                         -animation $animationToImport
+			                                         -silent $rootJoint` ) )
+			{
+				return "Couldn't Import Animation: [" + $animationToImport + "]";
+			}
+		}
+		
+		// update the frame so that any static channels that 
+		//  actually update from the bind pose do there thing before they are deleted
+		currentTime 0;
+		delete -staticChannels -hierarchy "below" $rootJoint;
+	}
+	
+	return "";
+}
+
+//--------------------------------------------------------------------------------------------
+/** @author Jeff Cotton
+ *  @date   08/03/2004
+ *  @param  path - relative path from Monolith base path of the model to import.
+ *  @param  bImportHierarchy
+ *  @param  bImportSkin
+ *  @param  bImportSockets
+ *  @param  bImportPhysics
+ *  @param  bImportAnimation
+ *  @param  bOntoSelection - ignored if bImportHierarchy is true. the newly imported
+ *                            hierarchy is used.
+ *  @param  bSilent - turns silent on for all internal commands, 
+ *  @brief  Simply step through import commands in order to import a model from Monolith
+ *           format.
+ *
+ *  Displays a prgress window to show operation progress.
+ *
+ *  @todo - Decide what to do with data that was imported if the window IS cancelled or an
+ *           error occured. Delete the data? Implement the decision
+ *
+ *  @date 08/04/2004 - Added support for correctly handling errors in commands. Progress
+ *                      window is closed and error message appears.
+ */
+global proc string mpDoModelImport( string $path,
+                                    int    $bImportHierarchy, 
+                                    int    $bImportSkin,
+                                    int    $bImportSockets,   
+                                    int    $bImportPhysics,   
+                                    int    $bImportAnimation, 
+                                    string $animationToImport, 
+                                    int    $bOntoSelection,   
+                                    int    $bSilent,
+                                    int    $bCloseWhenFinished )
+{
+	string $ELFPathProgressWindow = mpStartProgressWindow( "Importing..." );
+	string $callback = "mpUpdateProgressWindow " + $ELFPathProgressWindow;
+	
+	DisableAll;
+	
+	// Simple variables to maintain state between commands
+	string $errorMessage;
+	int    $fileID = -1;
+	string $rootJoint[];
+	
+	// if we aren't importing the hierarchy, then find a rootnode to import onto
+	if ( !$bImportHierarchy )
+	{
+		$rootJoint[0] = mpGetRootJoint( $bOntoSelection, $bSilent );
+		
+		if ( "" == $rootJoint[0] )
+		{
+			$errorMessage = "Couldn't Find Hierarchy To Import Onto";
+		}
+	}
+	
+	// Pretty self descriptive - Mel does not early out of conditional statments.
+	//  i.e. if ( x && y ) .both x and y ALWAYS evaluate even if x is false causing
+	//  the end result to be false. this is why there are a lot of if statements.
+	if ( mpImportRunCallBack( $callback, "Importing...", 0, "Opening Model File" ) )
+	{
+		// try to find an already opened file
+		if ( catchQuiet( $fileID = `mpModelOpen -query -id $path` ) )
+		{
+			// if not then try to open the file
+			if ( catchQuiet( $fileID = `mpModelOpen $path` ) )
+			{
+				$errorMessage = "Couldn't Open File";
+			}
+		}
+		// if the file was already opened, then don't close it when done
+		else
+		{
+			$bCloseWhenFinished = false;
+		}
+		
+		if ( -1 != $fileID && "" == $errorMessage )
+		{
+			// Do the hierarchy import
+			if ( $bImportHierarchy && "" == $errorMessage )
+			{
+				$errorMessage = mpImportHierarchy( $callback, $fileID, $rootJoint, $bSilent );
+			}
+			
+			// save our current pose for restore later, and set the hierarchy to the bindpose
+			//~ $oldPose = `dagPose -save $rootJoint[0]`;
+			if ( catchQuiet( `dagPose -restore -bindPose $rootJoint[0]` ) )
+			{
+				//~ $bFailureOccured = true;
+				//~ $errorMessage    = "Couldn't Switch to Bind Pose";
+			}
+			
+			// Do the shapes import
+			if ( $bImportSkin && "" == $errorMessage )
+			{
+				$errorMessage = mpImportSkin( $callback, $fileID, $rootJoint[0], $bSilent );
+			}
+			
+			// Do the sockets import
+			if ( $bImportSockets && "" == $errorMessage )
+			{
+				$errorMessage = mpImportSockets( $callback, $fileID, $rootJoint[0], $bSilent );
+			}
+			
+			// Do the physics import
+			if ( $bImportPhysics && "" == $errorMessage )
+			{
+				if ( mpIsHavokPluginLoaded() )
+				{
+					$errorMessage = mpImportPhysics( $callback, $fileID, $rootJoint[0], $bSilent );
+				}
+			}
+			
+			// Do the animation import
+			if ( $bImportAnimation && "" == $errorMessage )
+			{
+				$errorMessage = mpImportAnimation( $callback, $fileID, $rootJoint[0], $animationToImport, $bSilent );
+			}
+			
+			//~ dagPose -restore -name $oldPose $rootJoint[0];
+			//~ delete $oldPose;
+			
+			if ( $bCloseWhenFinished )
+			{
+				mpImportRunCallBack( $callback, "Importing...", 99, "Closing Model File" );
+				catchQuiet( `mpModelClose -id $fileID -silent` );
+			}
+		}
+	}
+	
+	// end the progress window, If the window was cancelled then cleanup
+	if ( mpEndProgressWindow( $ELFPathProgressWindow ) )
+	{
+		// @todo some cleanup stuff here ????
+	}
+	
+	EnableAll;
+	
+	if ( "" != $errorMessage )
+	{
+		mpConfirmDialog( "ok", "Import Error!", $errorMessage, $errorMessage, $bSilent );
+	}
+	
+	return $rootJoint[0];
+}
+
+//--------------------------------------------------------------------------------------------
+/** @author Jeff Cotton
+ *  @date   08/09/2004
+ */
+global proc mpModelImport( string $path,
+                           int    $bSilent )
+{
+	mpDoModelImport( $path, true, true, true, true, true, "base", false, $bSilent, true );
+}
+
+//--------------------------------------------------------------------------------------------
+/** @author Jeff Cotton
+ *  @date   08/09/2004
+ */
+global proc mpModelImportPhysics( string $path,
+                                  int    $bOntoSelection,
+                                  int    $bSilent )
+{
+	mpDoModelImport( $path, false, false, false, true, false, "", $bOntoSelection, $bSilent, true );
+}

@@ -1,0 +1,3 @@
+LipCompiler /file <file to compile> [/out <name of output file>] [/help]
+
+A file name must be specified for compiling

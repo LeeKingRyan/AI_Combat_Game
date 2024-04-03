@@ -1,0 +1,154 @@
+source "monolith/mpModelUtility.mel";
+
+global proc mpNodeListSelectionChangedCommand( string $parentUI )
+{
+	//~ print ( "mpNodeListSelectionChangedCommand\n" );
+	
+	string $visiblePath = $parentUI + "|Visible";
+	string $hiddenPath  = $parentUI + "|Hidden";
+	int $selection[] = `textScrollList -query -selectIndexedItem $visiblePath`;
+	
+	textScrollList -edit -deselectAll $hiddenPath;
+	
+	// some sort of bug that I have to do this loop to ensure that the list
+	//  is actually empty. -deselectAll is not working properly
+	while ( size( `textScrollList -query -selectIndexedItem $hiddenPath` ) )
+	{
+		//~ print ( "\nSelection Old\n" );
+		//~ print ( `textScrollList -query -selectIndexedItem $hiddenPath` );
+		//~ print ( "\n" );
+		
+		textScrollList -edit -deselectAll $hiddenPath;
+	}
+	
+	for ( $item in $selection )
+	{
+		textScrollList -edit -selectIndexedItem $item $hiddenPath;
+	}
+}
+
+global proc mpNodeListDeleteCommand( string $parentUI )
+{
+	//~ print ( "mpNodeListDeleteCommand\n" );
+	
+	string $visiblePath = $parentUI + "|Visible";
+	string $hiddenPath  = $parentUI + "|Hidden";
+	
+	int $selection[] = `textScrollList -query -selectIndexedItem $visiblePath`;
+	for ( $item in $selection )
+	{
+		textScrollList -edit -removeIndexedItem $item $visiblePath;
+		textScrollList -edit -removeIndexedItem $item $hiddenPath;
+	}
+}
+
+global proc string mpNodeListCreate( string $name,
+                                     string $selectCommand,
+                                     string $doubleClickCommand,
+                                     string $deleteCommand )
+{
+	//~ print ( "mpNodeListCreate\n" );
+	
+	string $parentUI = `formLayout -numberOfDivisions 100 $name`;
+	{
+		$selectCommand = "mpNodeListSelectionChangedCommand( \"" + $parentUI + "\" ); " + $selectCommand;
+		$deleteCommand = $deleteCommand + "; mpNodeListDeleteCommand( \"" + $parentUI + "\" );";
+		
+		string $visible = `textScrollList -manage             true
+		                                  -selectCommand      $selectCommand
+		                                  -deleteKeyCommand   $deleteCommand
+		                                  -doubleClickCommand $doubleClickCommand
+		                                  Visible`;
+		
+		textScrollList -manage false Hidden;
+		
+		formLayout -edit -attachForm $visible "left"   0
+		                 -attachForm $visible "top"    0
+		                 -attachForm $visible "right"  0
+		                 -attachForm $visible "bottom" 0
+		                 $parentUI;
+	}
+	setParent ..;
+	
+	return $parentUI;
+}
+
+global proc mpNodeListEdit( string $options, string $path )
+{
+	//~ print ( "mpNodeListEdit\n" );
+	
+	string $visiblePath = $path + "|Visible";
+	string $hiddenPath  = $path + "|Hidden";
+	
+	eval( "textScrollList -edit " + $options + " \"" + $visiblePath + "\"" );
+	eval( "textScrollList -edit " + $options + " \"" + $hiddenPath  + "\"" );
+}
+
+global proc mpNodeListAdd( string $parentNodeName, string $nodeName, string $path )
+{
+	//~ print ( "mpNodeListAdd\n" );
+	
+	string $visiblePath  = $path + "|Visible";
+	string $hiddenPath   = $path + "|Hidden";
+	string $relativePath = mpRelativePath( $parentNodeName, $nodeName );
+	
+	textScrollList -edit -append $relativePath $visiblePath;
+	textScrollList -edit -append $nodeName $hiddenPath;
+}
+
+global proc mpNodeListSelect( string $parentNodeName, string $nodeName, string $path )
+{
+	//~ print ( "mpNodeListSelect\n" );
+	
+	string $visiblePath  = $path + "|Visible";
+	string $hiddenPath   = $path + "|Hidden";
+	string $relativePath = mpRelativePath( $parentNodeName, $nodeName );
+	
+	textScrollList -edit -selectItem $nodeName $hiddenPath;
+	textScrollList -edit -deselectAll $visiblePath;
+	
+	int $selection[] = `textScrollList -query -selectIndexedItem $hiddenPath`;
+	
+	if ( 0 == size( $selection ) && 0 < `textScrollList -query -numberOfItems $hiddenPath` )
+	{
+		textScrollList -edit -selectIndexedItem 1 $hiddenPath;
+		textScrollList -edit -selectIndexedItem 1 $visiblePath;
+	}
+	else
+	{
+		for ( $item in $selection )
+		{
+			textScrollList -edit -selectIndexedItem $item $visiblePath;
+		}
+	}
+}
+
+global proc string[] mpNodeListGetSelection( string $path )
+{
+	//~ print ( "mpNodeListGetSelection\n" );
+	
+	string $hiddenPath  = $path + "|Hidden";
+	
+	return `textScrollList -query -selectItem $hiddenPath`;
+}
+
+global proc string[] mpNodeListGetAllItems( string $path )
+{
+	//~ print ( "mpNodeListGetAllItems\n" );
+	
+	string $hiddenPath  = $path + "|Hidden";
+	
+	return `textScrollList -query -allItems $hiddenPath`;
+}
+
+global proc mpNodeListClear( string $path )
+{
+	//~ print ( "mpNodeListClear\n" );
+	
+	string $visiblePath  = $path + "|Visible";
+	string $hiddenPath   = $path + "|Hidden";
+	
+	textScrollList -edit -removeAll $visiblePath;
+	textScrollList -edit -removeAll $hiddenPath;
+}
+

@@ -1,0 +1,402 @@
+// Copyright (C) 1997-2004 Alias,
+// a division of Silicon Graphics Limited.
+// 
+// The information in this file is provided for the exclusive use of the
+// licensees of Alias.  Such users have the right to use, modify,
+// and incorporate this code into other products for purposes authorized
+// by the Alias license agreement, without fee.
+// 
+// ALIAS DISCLAIMS ALL WARRANTIES WITH REGARD TO THIS SOFTWARE,
+// INCLUDING ALL IMPLIED WARRANTIES OF MERCHANTABILITY AND FITNESS, IN NO
+// EVENT SHALL ALIAS BE LIABLE FOR ANY SPECIAL, INDIRECT OR
+// CONSEQUENTIAL DAMAGES OR ANY DAMAGES WHATSOEVER RESULTING FROM LOSS OF USE,
+// DATA OR PROFITS, WHETHER IN AN ACTION OF CONTRACT, NEGLIGENCE OR OTHER
+// TORTIOUS ACTION, ARISING OUT OF OR IN CONNECTION WITH THE USE OR
+// PERFORMANCE OF THIS SOFTWARE.
+
+//
+//  Alias|Wavefront Script File
+//
+//  Creation Date:	May 14, 1997
+//  Author:		sw
+//
+//  Procedure Name:
+//	AEgeometryShapeTemplate
+//
+//  Description:
+//	Creates the attribute editor controls for the geometryShapeNode
+//
+//  Input Value:
+//	nodeName
+//
+//  Output Value:
+//	None
+//
+
+
+//
+//  Procedure Name:
+//	checkGeomAntialiasingOverride
+//
+//
+
+global proc checkGeomAntialiasingOverride( string $nodeName ) 
+{
+	// 
+	string $nodeAttr = $nodeName + ".geometryAntialiasingOverride";
+	int $value = `getAttr $nodeAttr`;
+	if ( $value == 1 ) {
+		editorTemplate -dimControl $nodeName "antialiasingLevel" false;
+	} else {
+		editorTemplate -dimControl $nodeName "antialiasingLevel" true;
+	} 
+}
+
+//
+//  Procedure Name:
+//	checkGeomShadingSamplesOverride
+//
+//
+
+global proc checkGeomShadingSamplesOverride ( string $nodeName ) 
+{
+	// Note: volume needs this attribute also!!
+	string $nodeAttr = $nodeName + ".shadingSamplesOverride";
+	int $value = `getAttr $nodeAttr`;
+	if ( $value == 1 ) {
+		editorTemplate -dimControl $nodeName "shadingSamples" false;
+		editorTemplate -dimControl $nodeName "maxShadingSamples" false;
+	} else {
+		editorTemplate -dimControl $nodeName "shadingSamples" true;
+		editorTemplate -dimControl $nodeName "maxShadingSamples" true;
+	} 
+}
+
+//
+//  Procedure Name:
+//	checkGeomMaxVisSamplesOverride
+//
+//
+
+global proc checkGeomMaxVisSamplesOverride ( string $nodeName ) 
+{
+	int $useBlur = `getAttr defaultRenderGlobals.motionBlur`;
+	int $blur3d = (`getAttr defaultRenderGlobals.motionBlurType` == 1);
+	if ( $useBlur && $blur3d ) {
+		editorTemplate -dimControl $nodeName "maxVisibilitySamplesOverride" false;
+	}
+	else {
+		editorTemplate -dimControl $nodeName "maxVisibilitySamplesOverride" true;
+	}
+
+	string $nodeAttr = $nodeName + ".maxVisibilitySamplesOverride";
+	int $value = `getAttr $nodeAttr`;
+	if (`attrFieldSliderGrp -exists renderMaxVisSamplesGrp`) {
+		if ( $value == 1 ) {
+			attrFieldSliderGrp -e -en true renderMaxVisSamplesGrp;
+		} else {
+			attrFieldSliderGrp -e -en false renderMaxVisSamplesGrp;
+		}
+	}
+}
+
+//
+//  Procedure Name:
+//	checkGeomVolumeSamplesOverride
+//
+//
+
+global proc checkGeomVolumeSamplesOverride ( string $nodeName ) 
+{
+	string $nodeAttr = $nodeName + ".volumeSamplesOverride";
+	int $value = `getAttr $nodeAttr`;
+	if ( $value == 1 ) {
+		editorTemplate -dimControl $nodeName "volumeSamples" false;
+	} else {
+		editorTemplate -dimControl $nodeName "volumeSamples" true;
+	}
+}
+
+//
+//  Procedure Name:
+//	checkDoubleSided
+//
+//
+
+global proc checkDoubleSided ( string $nodeName ) 
+{
+	if (`attributeExists "doubleSided" $nodeName`)
+	{
+		string $nodeAttr = $nodeName + ".doubleSided";
+		int $value = `getAttr $nodeAttr`;
+		
+		if ( $value == 1 ) {
+			editorTemplate -dimControl $nodeName "opposite" true;
+		} else {
+			editorTemplate -dimControl $nodeName "opposite" false;
+		}
+	}
+}
+//
+// Procedure Name:
+//   AEfindBboxScale
+//
+global proc AEfindBboxScale( string $nodeNameArr )
+{	
+	string $buffer[];
+	tokenize($nodeNameArr,".",$buffer);
+	string $nodeName = $buffer[0];
+
+	setUITemplate -pst attributeEditorTemplate;
+
+    rowLayout -nc 2;
+    text -l "";
+	button -l "Calculate Bounding Box Scale" -c ("displacementToPoly -findBboxOnly " + $nodeName) 
+		findBboxScaleButton;
+	setParent ..;
+
+	setUITemplate -ppt;
+}
+
+//
+// Procedure Name:
+//   AEfindBboxScaleEdit
+//
+global proc AEfindBboxScaleEdit( string $nodeNameArr )
+{
+	string $buffer[];
+	tokenize($nodeNameArr,".",$buffer);
+	string $nodeName = $buffer[0];
+
+	setUITemplate -pst attributeEditorTemplate;	
+	button -e -c ("displacementToPoly -findBboxOnly " + $nodeName) findBboxScaleButton;
+	setUITemplate -ppt;
+}
+
+global proc AEmaxVisibilitySamplesNew( string $attrName )
+{
+    setUITemplate -pst attributeEditorTemplate;
+    attrFieldSliderGrp -attribute $attrName -l "Max Visib. Samples" 
+			renderMaxVisSamplesGrp;
+    setUITemplate -ppt;
+}
+
+global proc AEmaxVisibilitySamplesReplace( string $attrName )
+{
+    attrFieldSliderGrp -e -attribute $attrName -l "Max Visib. Samples" 
+		renderMaxVisSamplesGrp;
+}
+
+global proc updateMotionBlurInAE (string $nodeName )
+//
+//  Procedure Name:
+//      updateMotionBlur
+//
+//  Description:
+//      Gets the real values from the nodes and sets the UI based
+//		on these values.  This procedure updates all of the motion
+//		blur values.
+//
+{ 
+	int $useBlur = `getAttr defaultRenderGlobals.motionBlur`;
+	int $blur3d = (`getAttr defaultRenderGlobals.motionBlurType` == 1);
+
+	if (`attrFieldSliderGrp -exists renderMaxVisSamplesGrp`) {
+		if ( $useBlur && $blur3d ) {
+			editorTemplate -dimControl $nodeName "maxVisibilitySamplesOverride" false;
+			attrFieldSliderGrp -e -en true renderMaxVisSamplesGrp;
+			checkGeomMaxVisSamplesOverride $nodeName;
+		} else {
+			editorTemplate -dimControl $nodeName "maxVisibilitySamplesOverride" true;
+			attrFieldSliderGrp -e -en false renderMaxVisSamplesGrp;
+		}
+	}
+}
+
+//
+//  Procedure Name
+//	AEgeometryShapeTemplate
+//
+
+global proc AEgeometryShapeTemplate( string $nodeName )
+{
+	editorTemplate -suppress "compInstObjGroups";
+	editorTemplate -suppress "ignoreSelfShadowing";
+
+	// suppress all the goemetryShape attributes 
+	// for the following nodes otherwise show them
+	// lattice, locator, positionMarker, nurbsCurve, snapshotShape
+	// (note we should probably examine classes derived from TlocatorShape
+	// as most of these should also exclude the geometry attrs )
+
+	string $type = `objectType $nodeName`;
+	string $isField[] = `ls -type field $nodeName`;
+
+	if ($type == "lattice" || 
+		$type == "locator" ||
+		$type == "hairConstraint" ||
+		$type == "particle" ||
+		$type == "pointEmitter" ||		
+		size($isField) ||
+		$type == "positionMarker" ||
+		$type == "snapshotShape" ||
+		$type == "nurbsCurve" )
+	{
+		editorTemplate -beginNoOptimize;
+		editorTemplate -suppress "castsShadows";
+		editorTemplate -suppress "receiveShadows";
+		editorTemplate -suppress "motionBlur";
+		editorTemplate -suppress "primaryVisibility";
+		editorTemplate -suppress "visibleInReflections";
+		editorTemplate -suppress "visibleInRefractions";
+		editorTemplate -suppress "doubleSided";
+        editorTemplate -suppress "opposite";
+		editorTemplate -suppress "geometryAntialiasingOverride";
+		editorTemplate -suppress "antialiasingLevel";
+		editorTemplate -suppress "shadingSamplesOverride";
+		editorTemplate -suppress "shadingSamples";
+		editorTemplate -suppress "maxShadingSamples";
+		editorTemplate -suppress "volumeSamplesOverride";
+		editorTemplate -suppress "volumeSamples";
+		editorTemplate -suppress "depthJitter";
+		editorTemplate -suppress "maxVisibilitySamplesOverride";
+		editorTemplate -suppress "maxVisibilitySamples";
+		editorTemplate -suppress "boundingBoxScale"; 
+		editorTemplate -suppress "featureDisplacement";
+		editorTemplate -suppress "initialSampleRate";
+		editorTemplate -suppress "extraSampleRate";
+		editorTemplate -suppress "textureThreshold";
+		editorTemplate -suppress "normalThreshold";
+		editorTemplate -endNoOptimize;
+
+	} else if ($type == "fluidShape" ) {
+
+		// Suppress surface-only attributes for fluids
+		// Suppress 3D motion blur attrs for fluids
+
+		editorTemplate -beginNoOptimize;
+		editorTemplate -suppress "featureDisplacement";
+		editorTemplate -suppress "initialSampleRate";
+		editorTemplate -suppress "extraSampleRate";
+		editorTemplate -suppress "textureThreshold";
+		editorTemplate -suppress "normalThreshold";
+		editorTemplate -suppress "boundingBoxScale"; 
+		editorTemplate -endNoOptimize;
+
+		editorTemplate -beginLayout "Render Stats";
+			editorTemplate -beginNoOptimize;
+			editorTemplate -addControl "castsShadows";
+			editorTemplate -addControl "receiveShadows";
+			editorTemplate -suppress   "motionBlur";
+			editorTemplate -addControl "primaryVisibility";
+			editorTemplate -addControl "smoothShading";
+			editorTemplate -addControl "visibleInReflections";
+			editorTemplate -addControl "visibleInRefractions";
+		
+			editorTemplate -suppress "doubleSided";
+		    editorTemplate -suppress "opposite";
+	
+			editorTemplate -addSeparator;
+			editorTemplate -suppress "geometryAntialiasingOverride" "checkGeomAntialiasingOverride";
+			editorTemplate -suppress "antialiasingLevel";
+
+			editorTemplate -addControl "shadingSamplesOverride" "checkGeomShadingSamplesOverride";
+			editorTemplate -addControl "shadingSamples";
+			editorTemplate -addControl "maxShadingSamples";
+
+			editorTemplate -addControl "volumeSamplesOverride" "checkGeomVolumeSamplesOverride";
+			editorTemplate -addControl "volumeSamples";
+				
+			editorTemplate -addControl "depthJitter";
+	
+			editorTemplate -suppress "maxVisibilitySamplesOverride";
+			editorTemplate -suppress "maxVisibilitySamples";
+	
+		editorTemplate -endLayout;
+	} else {
+		editorTemplate -beginLayout "Displacement Map";
+			editorTemplate -beginNoOptimize;
+			editorTemplate -addControl "featureDisplacement";
+			editorTemplate -endNoOptimize;
+			editorTemplate -addControl "initialSampleRate";
+			editorTemplate -addControl "extraSampleRate";
+			editorTemplate -addControl "textureThreshold";
+			editorTemplate -addControl "normalThreshold";
+			editorTemplate -addSeparator;			
+			editorTemplate -addControl "boundingBoxScale"; 
+			editorTemplate -callCustom "AEfindBboxScale" "AEfindBboxScaleEdit" $nodeName;	
+		editorTemplate -endLayout;
+
+		editorTemplate -beginLayout "Render Stats";
+			editorTemplate -beginNoOptimize;
+			editorTemplate -addControl "castsShadows";
+			editorTemplate -addControl "receiveShadows";
+			editorTemplate -addControl "motionBlur";
+			editorTemplate -addControl "primaryVisibility";
+			editorTemplate -addControl "smoothShading";
+			editorTemplate -addControl "visibleInReflections";
+			editorTemplate -addControl "visibleInRefractions";
+		
+			editorTemplate -interruptOptimize;
+	
+	        	editorTemplate -addControl "doubleSided" 
+						"checkDoubleSided";
+	        	editorTemplate -addControl "opposite";
+			editorTemplate -endNoOptimize;
+	
+			editorTemplate -addSeparator;
+			editorTemplate 
+                -label "Geometry Anti-aliasing Override"
+                -addControl "geometryAntialiasingOverride" "checkGeomAntialiasingOverride";
+			editorTemplate -addControl "antialiasingLevel";
+
+			editorTemplate -addControl "shadingSamplesOverride" "checkGeomShadingSamplesOverride";
+			editorTemplate -addControl "shadingSamples";
+			editorTemplate -addControl "maxShadingSamples";
+
+			if (($type == "mesh") ||
+				($type == "nurbsSurface") ||
+				($type == "subdiv"))
+			{
+				editorTemplate -suppress "volumeSamplesOverride";
+				editorTemplate -suppress "volumeSamples";
+				editorTemplate -suppress "depthJitter";
+			}
+			else
+			{
+				editorTemplate -addControl "volumeSamplesOverride" "checkGeomVolumeSamplesOverride";
+				editorTemplate -addControl "volumeSamples";
+				editorTemplate -addControl "depthJitter";
+			}
+
+			editorTemplate -beginLayout "3D Motion Blur";
+				editorTemplate -addControl "maxVisibilitySamplesOverride" "checkGeomMaxVisSamplesOverride";
+
+				editorTemplate -suppress "maxVisibilitySamples";
+				editorTemplate -callCustom "AEmaxVisibilitySamplesNew" "AEmaxVisibilitySamplesReplace" "maxVisibilitySamples";
+
+			scriptJob -killWithScene
+				-ac "defaultRenderGlobals.motionBlur" 
+				("updateMotionBlurInAE " + $nodeName);		
+			scriptJob -killWithScene
+				-ac "defaultRenderGlobals.motionBlurType" 
+				("updateMotionBlurInAE " + $nodeName);
+
+			editorTemplate -endLayout;
+
+		editorTemplate -endLayout;
+	}	
+	
+	// mental ray FG FG override per shape
+	if ($type == "mesh" || 
+	    $type == "nurbsSurface" || 
+	    $type == "subdiv" ||
+	    $type == "fluidShape" )
+		AEmentalrayFGGIOverrideFlags $nodeName;
+
+	if ($type == "mesh")
+		AEmpMeshAttributes $nodeName;
+	
+	// include/call base class/node attributes
+	AEshapeTemplate $nodeName;
+}
